@@ -2,16 +2,15 @@
 
 TODO:
    1. Make it so that the player can play the fucking game instead of watching the guys sing
-      i. Player can hit and hold notes, giving them health
+      i. Player can hit long notes, giving them health
       ii. Hitting notes is judged by accuracy (Shit, Bad, Good, Sick!!)
    2. Make down- & middle-scroll options work
       i. For middle-scroll, don't display opponent notes
    3. Make it so that the player can die
-      i. Allow the player to restart the song or return to menu once in this "substate"
-   4. Score & accuracy mechanic
+      i. Allow the player to restart ("return" key) the song or return to menu ("escape" key) once in this "substate"
+   4. Streak mechanic
+      i. Make girlfriend cry when player breaks a streak that is >= 10 (oh boohoo)
    5. Add a pause menu
-
-This script just autoplays songs...for now.
 
 ]]
 
@@ -358,7 +357,7 @@ function state:enter(song,difficulty)
       end
    end
 
-   Entity:create(Clock,"bumpin",-1,60/metaData.bpm,function(clock)
+   stuff.bumpinClock = Entity:create(Clock,"bumpin",-1,60/metaData.bpm,function(clock)
       for _,v in pairs({"player","opponent"}) do
          local actor = getObjectByTag(v)
 
@@ -398,7 +397,7 @@ function state:enter(song,difficulty)
       end
    end)
 
-   Entity:create(Clock,"bumpinIcons",-1,120/metaData.bpm,function()
+   stuff.bumpinIcons = Entity:create(Clock,"bumpinIcons",-1,120/metaData.bpm,function()
       healthBar_playerIcon.ScaleX = -1.4
       healthBar_playerIcon.ScaleY = 1.4
       flux.to(healthBar_playerIcon,60/metaData.bpm,{ScaleX = -1.3,ScaleY=1.3}):ease("quadout")
@@ -586,7 +585,7 @@ function state:enter(song,difficulty)
 
       if not direction then return end
 
-      songData.inputs[direction] = true
+      songData.inputs[direction] = false
       local dirToReceptorNumber = {
          ["left"] = 1,
          ["down"] = 2,
@@ -619,6 +618,9 @@ function state:exit()
    else
       Entity:destroy(songData.music.vocals)
    end
+
+   Input:unbind("GameInputPressed")
+   Input:unbind("GameInputReleased")
 
    stuff = {}
    ui = {}
@@ -758,6 +760,10 @@ function state:update(dt)
 
          table.remove(songData.events,i)
       end
+   end
+
+   for _,v in pairs(ui[7]) do
+      v:update(dt)
    end
 
    for name,script in pairs(songData.scripts) do
