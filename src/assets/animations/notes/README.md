@@ -1,0 +1,2 @@
+Most sprites are their own actors, and thus each animation file must be separated.
+Loading each and every note as an actor using the same animation file, which auto-loads literally EVERYTHING inside can be hectic on hardware.
