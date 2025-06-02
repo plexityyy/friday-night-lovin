@@ -2,7 +2,7 @@ local VERSION = "4"
 love.window.setTitle("Friday Night Lovin' - VERSION " .. VERSION)
 
 local scripter = require("engine.scripter")
-local settings = require("settings")
+settings = require("settings")
 push = require("libs.push")
 
 local volumeTrayAssets = {}

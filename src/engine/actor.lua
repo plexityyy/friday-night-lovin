@@ -44,7 +44,8 @@ function file:init()
         priority = contents.priority,
         speed = contents.speed,
         playing = false,
-        looped = contents.looping,
+        looped = contents.looping or false,
+        loopback = contents.loopback or false,
         offsetX = contents.offsetX,
         offsetY = contents.offsetY
       }
@@ -80,6 +81,8 @@ function file:init()
         if anim.dt >= #anim.frames then
           if anim.looped then
             anim.dt = 1
+          elseif anim.loopback then
+            anim.dt = #anim.frames
           else
             anim.playing = false
           end

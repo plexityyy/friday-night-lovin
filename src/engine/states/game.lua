@@ -51,6 +51,7 @@ function state:enter(song,difficulty)
 
    print(string.format("Loading \"%s\" (%s)...",song,difficulty))
 
+   local currentSettings = settings:getSettings()
    local metaData = JSON.decode(love.filesystem.read("songs/" .. song .. "/metadata.json"))
    songData = {
       music = {
@@ -92,8 +93,16 @@ function state:enter(song,difficulty)
             y = 0
          }
       },
+      inputs = {
+         left = false,
+         down = false,
+         up = false,
+         right = false
+      },
       speed = 0,
-      health = 50
+      health = 50,
+      points = 0,
+      maxPoints = 0
    }
 
    if love.filesystem.getInfo("songs/" .. song .. "/PlayerVocals.ogg") and love.filesystem.getInfo("songs/" .. song .. "/EnemyVocals.ogg") then
@@ -334,6 +343,9 @@ function state:enter(song,difficulty)
          if i == 1 then
             startingPos = 0
             xPosition = xPosition + (push:getWidth()/2)
+         else
+            noteActor:getAnimation("pressed").loopback = false
+            noteActor:getAnimation("pressed_confirm").loopback = false
          end
 
          noteActor.Position = {
@@ -479,12 +491,112 @@ function state:enter(song,difficulty)
          x = n.noteImg.receptor.Position.x-77,
          y = -1500 -- :update(dt) will handle note positioning
       }
-      n.noteImg.img = noteImage
 
+      n.noteImg.img = noteImage
       ui[8]["note" .. tostring(i)] = n.noteImg.img
 
       table.insert(songData.notes,n)
    end
+
+   -- bind key actions
+   Input:bind("GameInputPressed",{"KeyPressed"},function(key)
+      local direction = nil
+
+      for d,action in pairs(currentSettings.keybinds) do
+         if action == key then
+            direction = d
+            break
+         end
+      end
+
+      if not direction then return end
+
+      local noteConfirmed = false
+      local songPosition = songData.music.instrumental.PlayingSources[1]:tell()
+      for i,note in pairs(songData.notes) do
+         if note.singer == "player" and note.dir == direction then
+            local difference = math.abs(songPosition-note.tick)
+            if difference < 0.15 then
+               noteConfirmed = true
+               if songData.music.plyVocals then
+                  songData.music.plyVocals.PlayingSources[1]:setVolume(1)
+               else
+                  songData.music.vocals.PlayingSources[1]:setVolume(1)
+               end
+               songData.points = songData.points + 450
+               songData.maxPoints = songData.maxPoints + 450
+               songData.health = math.min(100,songData.health + 5)
+
+               local actor = getObjectByTag("player")
+               for _,v in pairs({"left","down","up","right"}) do
+                  if v == direction then
+                     actor:playAnimation(v)
+                     actor:stopAnimation(v .. "_miss")
+                  else
+                     actor:stopAnimation(v)
+                     actor:stopAnimation(v .. "_miss")
+                  end
+               end
+
+               ui[8]["note" .. tostring(note.noteImg.index)] = nil
+               table.remove(songData.notes,i)
+               break
+            end
+         end
+      end
+
+      songData.inputs[direction] = true
+      local dirToReceptorNumber = {
+         ["left"] = 1,
+         ["down"] = 2,
+         ["up"] = 3,
+         ["right"] = 4
+      }
+      local receptor = ui[7][dirToReceptorNumber[direction]]
+      if noteConfirmed then
+         receptor:playAnimation("pressed_confirm")
+      else
+         receptor:playAnimation("pressed")
+         local cln = songData.sounds["missNote" .. tostring(love.math.random(1,3))]:createSource()
+         cln:setVolume(0.35)
+         cln:play()
+
+         songData.points = songData.points - 10
+         songData.health = math.max(0,songData.health - 5)
+         local actor = getObjectByTag("player")
+         for _,v in pairs({"left","down","up","right"}) do
+            if v == direction then
+               actor:playAnimation(v .. "_miss")
+            else
+               actor:stopAnimation(v)
+               actor:stopAnimation(v .. "_miss")
+            end
+         end
+      end
+   end)
+   Input:bind("GameInputReleased",{"KeyReleased"},function(key)
+      local direction = nil
+
+      for d,action in pairs(currentSettings.keybinds) do
+         if action == key then
+            direction = d
+            break
+         end
+      end
+
+      if not direction then return end
+
+      songData.inputs[direction] = true
+      local dirToReceptorNumber = {
+         ["left"] = 1,
+         ["down"] = 2,
+         ["up"] = 3,
+         ["right"] = 4
+      }
+      local receptor = ui[7][dirToReceptorNumber[direction]]
+      receptor:stopAnimation("pressed")
+      receptor:stopAnimation("pressed_confirm")
+   end)
 
    songData.music.instrumental:createSource():play()
    if songData.music.vocals then
@@ -526,12 +638,21 @@ function state:update(dt)
          if songPosition >= note.tick then
             local actor = getObjectByTag("opponent")
 
+            local dirToNumb = {
+               ["left"] = 5,
+               ["down"] = 6,
+               ["up"] = 7,
+               ["right"] = 8
+            }
+            local receptorIndex = 0
             for _,dir in pairs({"left","down","up","right"}) do
                actor:stopAnimation(dir)
                if dir == note.dir then
+                  receptorIndex = dirToNumb[dir]
                   actor:playAnimation(dir)
                end
             end
+            ui[7][receptorIndex]:playAnimation("pressed_confirm")
 
             if songData.music.vocals then
                songData.music.vocals.PlayingSources[1]:setVolume(1)
@@ -541,7 +662,7 @@ function state:update(dt)
             table.remove(songData.notes,i)
          end
       else
-         if songPosition >= note.tick+0.25 then
+         if songPosition >= note.tick+0.15 then
             local cln = songData.sounds["missNote" .. tostring(love.math.random(1,3))]:createSource()
             cln:setVolume(0.35)
             cln:play()
@@ -552,6 +673,8 @@ function state:update(dt)
                songData.music.vocals.PlayingSources[1]:setVolume(0)
             end
             songData.health = songData.health - 5
+            songData.points = songData.points - 10
+            songData.maxPoints = songData.maxPoints + 450
 
             local actor = getObjectByTag("player")
             for _,dir in pairs({"left","down","up","right"}) do
@@ -567,6 +690,31 @@ function state:update(dt)
             table.remove(songData.notes,i)
          end
       end
+   end
+   do
+      local acc = "???"
+      local rank = "?"
+      if songData.maxPoints ~= 0 and songData.points ~= 0 then
+         local percentage = (songData.points/songData.maxPoints)*100
+
+         if percentage >= 99 then
+            rank = "Marvelous!!!"
+         elseif percentage >= 90 then
+            rank = "Sick!!"
+         elseif percentage >= 80 then
+            rank = "Good!"
+         elseif percentage >= 70 then
+            rank = "Okay..."
+         elseif percentage >= 60 then
+            rank = "Bad"
+         else
+            rank = "Shit"
+         end
+
+         acc = string.format("%.1f",percentage)
+      end
+
+      ui[6].Text = "Score: " .. tostring(songData.points) .. " | Accuracy: " .. acc .. "% (" .. rank .. ")"
    end
 
    local healthBar_Background = ui[2]

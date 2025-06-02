@@ -15,6 +15,7 @@ return {
         priority = 2,
         looping = false,
         fallback = false,
+        loopback = true,
         speed = 24,
         offsetX = 0,
         offsetY = 0
@@ -25,6 +26,7 @@ return {
         priority = 3,
         looping = false,
         fallback = false,
+        loopback = true,
         speed = 24,
         offsetX = 0,
         offsetY = 0
