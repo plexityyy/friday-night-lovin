@@ -2,15 +2,12 @@
 
 TODO:
    1. Make it so that the player can play the fucking game instead of watching the guys sing
-      i. Player can hit long notes, giving them health
-      ii. Hitting notes is judged by accuracy (Shit, Bad, Good, Sick!!)
+      i. Player can hit long notes, giving them health (works????? i guess??????????)
    2. Make down- & middle-scroll options work
       i. For middle-scroll, don't display opponent notes
    3. Make it so that the player can die
       i. Allow the player to restart ("return" key) the song or return to menu ("escape" key) once in this "substate"
-   4. Streak mechanic
-      i. Make girlfriend cry when player breaks a streak that is >= 10 (oh boohoo)
-   5. Add a pause menu
+   4. Add a pause menu
 
 ]]
 
@@ -92,15 +89,10 @@ function state:enter(song,difficulty)
             y = 0
          }
       },
-      inputs = {
-         left = false,
-         down = false,
-         up = false,
-         right = false
-      },
       speed = 0,
       health = 50,
       points = 0,
+      streak = 0,
       maxPoints = 0
    }
 
@@ -173,7 +165,6 @@ function state:enter(song,difficulty)
                local calcSpeed = 14.4 / (60/metaData.bpm)
                stuff[data.name]:getAnimation("idle").speed = calcSpeed
                stuff[data.name]:getAnimation("hairblowing").speed = calcSpeed
-
                stuff[data.name]:playAnimation("idle")
             end
          end
@@ -317,7 +308,7 @@ function state:enter(song,difficulty)
    healthBar_BackgroundBorders.LineThickness = 12
 
    local healthBar_infoText = Text:new("Score: 0",love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.03))
-   healthBar_infoText.Position = {x=healthBar_Background.Position.x,y=healthBar_Background.Position.y+healthBar_Background.Size.h+healthBar_BackgroundBorders.LineThickness}
+   healthBar_infoText.Position = {x=healthBar_Background.Position.x,y=healthBar_Background.Position.y+healthBar_Background.Size.h+healthBar_BackgroundBorders.LineThickness+30}
    healthBar_infoText.Limit = healthBar_Background.Size.w
    healthBar_infoText.Align = "right"
 
@@ -400,11 +391,11 @@ function state:enter(song,difficulty)
    stuff.bumpinIcons = Entity:create(Clock,"bumpinIcons",-1,120/metaData.bpm,function()
       healthBar_playerIcon.ScaleX = -1.4
       healthBar_playerIcon.ScaleY = 1.4
-      flux.to(healthBar_playerIcon,60/metaData.bpm,{ScaleX = -1.3,ScaleY=1.3}):ease("quadout")
+      flux.to(healthBar_playerIcon,60/metaData.bpm,{ScaleX = -1.3,ScaleY=1.3})
 
       healthBar_opponentIcon.ScaleX = 1.4
       healthBar_opponentIcon.ScaleY = 1.4
-      flux.to(healthBar_opponentIcon,60/metaData.bpm,{ScaleX = 1.3,ScaleY=1.3}):ease("quadout")
+      flux.to(healthBar_opponentIcon,60/metaData.bpm,{ScaleX = 1.3,ScaleY=1.3})
    end)
 
    -- load events
@@ -419,7 +410,6 @@ function state:enter(song,difficulty)
       })
    end
 
-   -- auto play the song ig
    local numberDirToStringDir = {
       [0] = {
          s = "player",
@@ -455,6 +445,7 @@ function state:enter(song,difficulty)
       }
    }
 
+   -- loading up note assets
    local notesFile = require("assets.animations.notes.notes")
    local noteQuads = {}
 
@@ -469,6 +460,7 @@ function state:enter(song,difficulty)
       )
    end
 
+   -- loading up the chart
    for i,note in pairs(chartData.notes[difficulty]) do
       local n = {
          tick = note.t/1000,
@@ -492,9 +484,46 @@ function state:enter(song,difficulty)
       }
 
       n.noteImg.img = noteImage
-      ui[8]["note" .. tostring(i)] = n.noteImg.img
+
+      if n.length > 0 then
+         local bodyImage = Image:new(NOTES_image,noteQuads[n.dir .. "NoteHoldBody"])
+         local tailImage = DumbImage:new(NOTES_image,noteQuads[n.dir .. "NoteHoldTail"])
+         bodyImage.Size = {
+            w = bodyImage.Image:getWidth(),
+            h = bodyImage.Image:getHeight()
+         }
+
+         bodyImage.Position,tailImage.Position = {
+            x = noteImage.Position.x,
+            y = -1500
+         },{
+            x = noteImage.Position.x,
+            y = -1500
+         }
+
+         n.noteImg.bodyImg = bodyImage
+         n.noteImg.tailImg = tailImage
+         ui[8]["noteBody" .. tostring(i)] = n.noteImg.bodyImg
+         ui[8]["noteTail" .. tostring(i)] = n.noteImg.tailImg
+      end
+      ui[8]["note" .. tostring(i)] = n.noteImg.img -- actual note goes above hold assets
 
       table.insert(songData.notes,n)
+   end
+
+   -- streak assets
+   local streakAssets = {
+      ranks = {
+         shit = love.graphics.newImage("assets/images/popup/shit.png"),
+         bad = love.graphics.newImage("assets/images/popup/bad.png"),
+         good = love.graphics.newImage("assets/images/popup/good.png"),
+         sick = love.graphics.newImage("assets/images/popup/sick.png"),
+      },
+      numbers = {},
+      instances = 0
+   }
+   for i = 1,10 do
+      streakAssets.numbers[i-1] = love.graphics.newImage("assets/images/popup/num" .. tostring(i-1) .. ".png")
    end
 
    -- bind key actions
@@ -522,10 +551,77 @@ function state:enter(song,difficulty)
                else
                   songData.music.vocals.PlayingSources[1]:setVolume(1)
                end
-               songData.points = songData.points + 450
-               songData.maxPoints = songData.maxPoints + 450
                songData.health = math.min(100,songData.health + 5)
+               songData.streak = songData.streak + 1
 
+               local ranking = "shit" -- default rank
+               if difference <= 0.02 then
+                  ranking = "sick"
+                  songData.points = songData.points + 450
+               elseif difference <= 0.06 then
+                  ranking = "good"
+                  songData.points = songData.points + 200
+               elseif difference <= 0.1 then
+                  ranking = "bad"
+                  songData.points = songData.points + 100
+               else
+                  songData.points = songData.points + 50
+               end
+               songData.maxPoints = songData.maxPoints + 450
+
+               -- spawn rank & streak view
+               local gf = getObjectByTag("gf")
+               streakAssets.instances = streakAssets.instances + 1
+               local rankImagePopup = Entity:create(DumbImage,"streakPopup_Rank",streakAssets.ranks[ranking])
+               rankImagePopup.Position = {
+                  x = gf.Position.x + rankImagePopup.Image:getWidth()/2 - 350,
+                  y = gf.Position.y + 45
+               }
+               rankImagePopup.ScaleX,rankImagePopup.ScaleY = 1.08,1.08
+
+               flux.to(rankImagePopup.Position,1.2,{
+                  x = rankImagePopup.Position.x + 30,
+                  y = rankImagePopup.Position.y - (45*2)
+               }):ease("backout")
+               flux.to(rankImagePopup.Colour,0.5,{
+                  a = 0
+               }):delay(0.7)
+
+               local rankNumberPopups = {}
+               local streakStr = tostring(songData.streak)
+               local c = 0
+               for i = #streakStr,1,-1 do
+                  local num = tonumber(string.sub(streakStr,i,i))
+                  local rankNumberPopup = Entity:create(Image,"streakPopup_Number",streakAssets.numbers[num])
+                  rankNumberPopup.Size = {
+                     w=streakAssets.numbers[num]:getWidth(),
+                     h=streakAssets.numbers[num]:getHeight()
+                  }
+                  rankNumberPopup.Position = {
+                     x = rankImagePopup.Position.x + rankImagePopup.Image:getWidth()/2 - (rankNumberPopup.Size.w*c/1.2),
+                     y = rankImagePopup.Position.y + rankImagePopup.Image:getHeight()
+                  }
+
+                  flux.to(rankNumberPopup.Position,1.2,{
+                     x = rankNumberPopup.Position.x + 30 + love.math.random(5,15),
+                     y = rankNumberPopup.Position.y - 60
+                  }):ease("backout")
+                  flux.to(rankNumberPopup.Colour,0.5,{
+                     a = 0
+                  }):delay(0.7)
+                  c = c + 1
+               end
+
+               stuff["streakPopup_Rank" .. tostring(streakAssets.instances)] = rankImagePopup
+               stuff["streakPopup_Clock" .. tostring(streakAssets.instances)] = Entity:create(Clock,"streakPopup_Clock",1,2.5,function()
+                  Entity:destroy(rankImagePopup)
+                  for _,v in pairs(rankNumberPopups) do Entity:destroy(v) end
+
+                  stuff["streakPopup_Rank" .. tostring(streakAssets.instances)] = nil
+                  stuff["streakPopup_Clock" .. tostring(streakAssets.instances)] = nil
+               end)
+
+               -- player animation
                local actor = getObjectByTag("player")
                for _,v in pairs({"left","down","up","right"}) do
                   if v == direction then
@@ -537,14 +633,19 @@ function state:enter(song,difficulty)
                   end
                end
 
+               -- destroy note
                ui[8]["note" .. tostring(note.noteImg.index)] = nil
-               table.remove(songData.notes,i)
+
+               if note.length > 0 then
+                  note.beingHit = true
+               else
+                  table.remove(songData.notes,i)
+               end
                break
             end
          end
       end
 
-      songData.inputs[direction] = true
       local dirToReceptorNumber = {
          ["left"] = 1,
          ["down"] = 2,
@@ -585,7 +686,45 @@ function state:enter(song,difficulty)
 
       if not direction then return end
 
-      songData.inputs[direction] = false
+      for i,note in pairs(songData.notes) do
+         if note.singer == "player" and note.length > 0 and note.beingHit and note.dir == direction then
+            local difference = math.abs(songData.music.instrumental.PlayingSources[1]:tell()-note.tick-note.length)
+            if difference > 0.06 then
+               local cln = songData.sounds["missNote" .. tostring(love.math.random(1,3))]:createSource()
+               cln:setVolume(0.35)
+               cln:play()
+
+               if songData.music.plyVocals then
+                  songData.music.plyVocals.PlayingSources[1]:setVolume(0)
+               else
+                  songData.music.vocals.PlayingSources[1]:setVolume(0)
+               end
+               songData.health = songData.health - 5
+               songData.points = songData.points - 10
+               songData.maxPoints = songData.maxPoints + 450
+
+               if songData.streak >= 10 then
+                  getObjectByTag("gf"):playAnimation("sad")
+               end
+               songData.streak = 0
+
+               local actor = getObjectByTag("player")
+               for _,dir in pairs({"left","down","up","right"}) do
+                  actor:stopAnimation(dir)
+                  actor:stopAnimation(dir .. "_miss")
+
+                  if dir == note.dir then
+                     actor:playAnimation(dir .. "_miss")
+                  end
+               end
+            end
+
+            ui[8]["noteBody" .. tostring(note.noteImg.index)] = nil
+            ui[8]["noteTail" .. tostring(note.noteImg.index)] = nil
+            table.remove(songData.notes,i)
+         end
+      end
+
       local dirToReceptorNumber = {
          ["left"] = 1,
          ["down"] = 2,
@@ -633,8 +772,18 @@ function state:update(dt)
    local songPosition = songData.music.instrumental.PlayingSources[1]:tell()
 
    for i,note in pairs(songData.notes) do
-      local newYPos = (note.noteImg.receptor.Position.y-50) - (note.tick - songPosition) * songData.speed
-      note.noteImg.img.Position.y = newYPos
+      note.noteImg.img.Position.y = (note.noteImg.receptor.Position.y-50) - (note.tick - songPosition) * songData.speed
+      if note.noteImg.bodyImg and note.noteImg.tailImg then
+         note.noteImg.tailImg.Position.y = (note.noteImg.receptor.Position.y - 50) - ((note.tick + note.length) - songPosition) * songData.speed
+         note.noteImg.tailImg.Position.x = note.noteImg.img.Position.x + 40
+
+         note.noteImg.bodyImg.Position.x = note.noteImg.tailImg.Position.x
+         --[[if note.beingHit then -- TODO: Fix this bullshit
+         else
+            note.noteImg.bodyImg.Size.h = (note.noteImg.tailImg.Position.y + note.noteImg.tailImg.Image:getHeight()) - note.noteImg.img.Position.y
+            note.noteImg.bodyImg.Position.y = ((note.noteImg.img.Position.y + note.noteImg.tailImg.Position.y - note.noteImg.tailImg.Image:getHeight())/2)*2
+         end]]
+      end
 
       if note.singer == "opponent" then
          if songPosition >= note.tick then
@@ -647,49 +796,110 @@ function state:update(dt)
                ["right"] = 8
             }
             local receptorIndex = 0
+            local chosenAnim = nil
             for _,dir in pairs({"left","down","up","right"}) do
                actor:stopAnimation(dir)
                if dir == note.dir then
                   receptorIndex = dirToNumb[dir]
+                  chosenAnim = dir
                   actor:playAnimation(dir)
                end
             end
-            ui[7][receptorIndex]:playAnimation("pressed_confirm")
-
-            if songData.music.vocals then
-               songData.music.vocals.PlayingSources[1]:setVolume(1)
-            end
-
+            
             ui[8]["note" .. tostring(note.noteImg.index)] = nil
-            table.remove(songData.notes,i)
+            if note.length > 0 then
+               note.beingHit = true
+
+               local anim = ui[7][receptorIndex]:getAnimation("pressed_confirm")
+               if not anim.playing then
+                  ui[7][receptorIndex]:playAnimation("pressed_confirm")
+               else
+                  if anim.dt >= 3 then
+                     if songData.music.vocals then
+                        songData.music.vocals.PlayingSources[1]:setVolume(1)
+                     end
+                     anim.dt = 1
+                  end
+               end
+               actor:getAnimation(chosenAnim).loopback = true
+
+               if songPosition >= note.tick + note.length then
+                  ui[8]["noteBody" .. tostring(note.noteImg.index)] = nil
+                  ui[8]["noteTail" .. tostring(note.noteImg.index)] = nil
+                  actor:getAnimation(chosenAnim).loopback = false
+                  table.remove(songData.notes,i)
+               end
+            else
+               if songData.music.vocals then
+                  songData.music.vocals.PlayingSources[1]:setVolume(1)
+               end
+
+               ui[7][receptorIndex]:playAnimation("pressed_confirm")
+               ui[7][receptorIndex]:getAnimation("pressed_confirm").loopback = false
+
+               table.remove(songData.notes,i)
+            end
          end
       else
          if songPosition >= note.tick+0.15 then
-            local cln = songData.sounds["missNote" .. tostring(love.math.random(1,3))]:createSource()
-            cln:setVolume(0.35)
-            cln:play()
+            if (note.length == 0) or (note.length > 0 and songPosition >= note.tick+note.length+0.15) then
+               local cln = songData.sounds["missNote" .. tostring(love.math.random(1,3))]:createSource()
+               cln:setVolume(0.35)
+               cln:play()
 
-            if songData.music.plyVocals then
-               songData.music.plyVocals.PlayingSources[1]:setVolume(0)
-            else
-               songData.music.vocals.PlayingSources[1]:setVolume(0)
-            end
-            songData.health = songData.health - 5
-            songData.points = songData.points - 10
-            songData.maxPoints = songData.maxPoints + 450
-
-            local actor = getObjectByTag("player")
-            for _,dir in pairs({"left","down","up","right"}) do
-               actor:stopAnimation(dir)
-               actor:stopAnimation(dir .. "_miss")
-
-               if dir == note.dir then
-                  actor:playAnimation(dir .. "_miss")
+               if songData.music.plyVocals then
+                  songData.music.plyVocals.PlayingSources[1]:setVolume(0)
+               else
+                  songData.music.vocals.PlayingSources[1]:setVolume(0)
                end
-            end
+               songData.health = songData.health - 5
+               songData.points = songData.points - 10
+               songData.maxPoints = songData.maxPoints + 450
 
-            ui[8]["note" .. tostring(note.noteImg.index)] = nil
-            table.remove(songData.notes,i)
+               if songData.streak >= 10 then
+                  getObjectByTag("gf"):playAnimation("sad")
+               end
+               songData.streak = 0
+
+               local actor = getObjectByTag("player")
+               local chosenAnim = nil
+               for _,dir in pairs({"left","down","up","right"}) do
+                  actor:stopAnimation(dir)
+                  actor:stopAnimation(dir .. "_miss")
+
+                  if dir == note.dir then
+                     chosenAnim = note.dir
+                     actor:playAnimation(dir .. "_miss")
+                  end
+               end
+
+               if note.length > 0 and note.beingHit then
+                  local dirToNumb = {
+                     ["left"] = 1,
+                     ["down"] = 2,
+                     ["up"] = 3,
+                     ["right"] = 4
+                  }
+                  local receptorIndex = dirToNumb[chosenAnim]
+
+                  local anim = ui[7][receptorIndex]:getAnimation("pressed_confirm")
+                  if not anim.playing then
+                     ui[7][receptorIndex]:playAnimation("pressed_confirm")
+                  else
+                     if anim.dt >= 3 then
+                        if songData.music.vocals then
+                           songData.music.vocals.PlayingSources[1]:setVolume(1)
+                        end
+                        anim.dt = 1
+                     end
+                  end
+               end
+
+               ui[8]["noteBody" .. tostring(note.noteImg.index)] = nil
+               ui[8]["noteTail" .. tostring(note.noteImg.index)] = nil
+               ui[8]["note" .. tostring(note.noteImg.index)] = nil
+               table.remove(songData.notes,i)
+            end
          end
       end
    end
@@ -735,12 +945,12 @@ function state:update(dt)
 
    healthBar_playerIcon.Position = {
       x=healthBar_HealthBar.Position.x+(healthBar_playerIcon.Image:getWidth()*0.6),
-      y=healthBar_HealthBar.Position.y-(healthBar_playerIcon.Image:getHeight()/2)
+      y=healthBar_HealthBar.Position.y-(healthBar_playerIcon.Image:getHeight()/1.65)
    }
 
    healthBar_opponentIcon.Position = {
       x=healthBar_HealthBar.Position.x-(healthBar_playerIcon.Image:getWidth()*0.6),
-      y=healthBar_HealthBar.Position.y-(healthBar_opponentIcon.Image:getHeight()/2)
+      y=healthBar_HealthBar.Position.y-(healthBar_opponentIcon.Image:getHeight()/1.65)
    }
 
    if (songData.health <= 25) then

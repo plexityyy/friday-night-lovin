@@ -24,12 +24,20 @@ function file:init()
     love.graphics.setColor(self.Colour.r,self.Colour.g,self.Colour.b,self.Colour.a)
     if self.Shader then
       love.graphics.setShader(self.Shader)
-      love.graphics.draw(self.Image,self.Quad,self.Position.x,self.Position.y,0,self.ScaleX,self.ScaleY,self.OffsetX,self.OffsetY)
+      if self.Quad then
+        love.graphics.draw(self.Image,self.Quad,self.Position.x,self.Position.y,0,self.ScaleX,self.ScaleY,self.OffsetX,self.OffsetY)
+      else
+        love.graphics.draw(self.Image,self.Position.x,self.Position.y,0,self.ScaleX,self.ScaleY,self.OffsetX,self.OffsetY)
+      end
       love.graphics.setShader()
       return
     end
     
-    love.graphics.draw(self.Image,self.Quad,self.Position.x,self.Position.y,0,self.ScaleX,self.ScaleY,self.OffsetX,self.OffsetY)
+    if self.Quad then
+      love.graphics.draw(self.Image,self.Quad,self.Position.x,self.Position.y,0,self.ScaleX,self.ScaleY,self.OffsetX,self.OffsetY)
+    else
+      love.graphics.draw(self.Image,self.Position.x,self.Position.y,0,self.ScaleX,self.ScaleY,self.OffsetX,self.OffsetY)
+    end
   end
 end
 
