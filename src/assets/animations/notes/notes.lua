@@ -28,7 +28,7 @@ return {
         x = 1337, -- 0_o
         y = 457,
         w = 51,
-        h = 8--4
+        h = 84
     },
     leftNoteHoldTail = {
         x = 1117,
@@ -40,7 +40,7 @@ return {
         x = 1282,
         y = 457,
         w = 51,
-        h = 8--4
+        h = 84
     },
     downNoteHoldTail = {
         x = 1062,
@@ -52,7 +52,7 @@ return {
         x = 1227,
         y = 457,
         w = 51,
-        h = 8--4
+        h = 84
     },
     upNoteHoldTail = {
         x = 1007,
@@ -64,7 +64,7 @@ return {
         x = 1172,
         y = 457,
         w = 51,
-        h = 8--4
+        h = 84
     },
     rightNoteHoldTail = {
         x = 952,

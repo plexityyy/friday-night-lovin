@@ -1,13 +1,9 @@
 --[[
 
 TODO:
-   1. Make it so that the player can play the fucking game instead of watching the guys sing
-      i. Player can hit long notes, giving them health (works????? i guess??????????)
-   2. Make down- & middle-scroll options work
-      i. For middle-scroll, don't display opponent notes
-   3. Make it so that the player can die
+   1. Make it so that the player can die
       i. Allow the player to restart ("return" key) the song or return to menu ("escape" key) once in this "substate"
-   4. Add a pause menu
+   2. Add a pause menu
 
 ]]
 
@@ -17,7 +13,7 @@ local songData = {}
 local ui = {}
 
 local function getObjectByTag(tag)
-   for name,obj in pairs(stuff) do
+   for _,obj in pairs(stuff) do
       if obj.Tag and obj.Tag == tag then
          return obj
       end
@@ -71,12 +67,13 @@ local eventToFunction = {
    end
 }
 
+local currentSettings
 function state:enter(song,difficulty)
    assert(love.filesystem.getDirectoryItems("songs/" .. song),string.format("An error occured with the game.lua scene! (Couldn't find \"%s\" song!)",song))
 
    print(string.format("Loading \"%s\" (%s)...",song,difficulty))
 
-   local currentSettings = settings:getSettings()
+   currentSettings = settings:getSettings()
    local metaData = JSON.decode(love.filesystem.read("songs/" .. song .. "/metadata.json"))
    songData = {
       music = {
@@ -289,7 +286,12 @@ function state:enter(song,difficulty)
    -- loading up UI
    local healthBar_Background = Box:new()
    healthBar_Background.Size = {w=push:getWidth()*0.75,h=push:getHeight()*0.02}
-   healthBar_Background.Position = {x=push:getWidth()/2-healthBar_Background.Size.w/2,y=push:getHeight()*0.09}
+   healthBar_Background.Position.x = push:getWidth()/2-healthBar_Background.Size.w/2
+   if not currentSettings.downScroll then
+      healthBar_Background.Position.y = push:getHeight() - (push:getHeight()*0.09)
+   else
+      healthBar_Background.Position.y = push:getHeight()*0.09
+   end
    healthBar_Background.Colour = {
       r = songData.icons.opponent.colour.r,
       g = songData.icons.opponent.colour.g,
@@ -337,7 +339,14 @@ function state:enter(song,difficulty)
    healthBar_BackgroundBorders.LineThickness = 12
 
    local healthBar_infoText = Text:new("Score: 0",love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.03))
-   healthBar_infoText.Position = {x=healthBar_Background.Position.x,y=healthBar_Background.Position.y+healthBar_Background.Size.h+healthBar_BackgroundBorders.LineThickness+30}
+   healthBar_infoText.Position.x = healthBar_Background.Position.x
+
+   if not currentSettings.downScroll then
+      healthBar_infoText.Position.y = healthBar_Background.Position.y-healthBar_Background.Size.h-healthBar_BackgroundBorders.LineThickness-15
+   else
+      healthBar_infoText.Position.y = healthBar_Background.Position.y+healthBar_Background.Size.h+healthBar_BackgroundBorders.LineThickness+3
+   end
+
    healthBar_infoText.Limit = healthBar_Background.Size.w
    healthBar_infoText.Align = "right"
 
@@ -359,17 +368,32 @@ function state:enter(song,difficulty)
 
          local xPosition = 225 + (150*(k-1))
          local startingPos = 4
-         if i == 1 then
-            startingPos = 0
-            xPosition = xPosition + (push:getWidth()/2)
+
+         if currentSettings.middleScroll then
+            if i == 1 then
+               startingPos = 0
+               xPosition = xPosition + (push:getWidth()/3.9)
+            else
+               xPosition = xPosition + push:getWidth()*500 -- put it off-screen or whatever
+            end
          else
-            noteActor:getAnimation("pressed").loopback = false
-            noteActor:getAnimation("pressed_confirm").loopback = false
+            if i == 1 then
+               startingPos = 0
+               xPosition = xPosition + (push:getWidth()/2)
+            else
+               noteActor:getAnimation("pressed").loopback = false
+               noteActor:getAnimation("pressed_confirm").loopback = false
+            end
+         end
+
+         local yPos = push:getHeight() - 15 - 158
+         if not currentSettings.downScroll then
+            yPos = 15 + 158
          end
 
          noteActor.Position = {
             x = xPosition,
-            y = push:getHeight() - 15 - 158
+            y = yPos
          }
 
          noteActor:playAnimation("idle")
@@ -513,13 +537,13 @@ function state:enter(song,difficulty)
       n.noteImg.img = noteImage
 
       if n.length > 0 then
-         local bodyImage = Box:new() --Image:new(NOTES_image,noteQuads[n.dir .. "NoteHoldBody"])
+         local bodyImage = Image:new(NOTES_image,noteQuads[n.dir .. "NoteHoldBody"])
          bodyImage.Size.w = 51
          local tailImage = DumbImage:new(NOTES_image,noteQuads[n.dir .. "NoteHoldTail"])
-         --[[bodyImage.Size = {
+         bodyImage.Size = {
             w = bodyImage.Image:getWidth(),
             h = bodyImage.Image:getHeight()
-         }]]
+         }
 
          bodyImage.Position,tailImage.Position = {
             x = noteImage.Position.x,
@@ -529,6 +553,10 @@ function state:enter(song,difficulty)
             y = -1500
          }
          bodyImage.Visible, tailImage.Visible = false, false
+
+         if not currentSettings.downScroll then
+            tailImage.ScaleY = -1
+         end
 
          n.noteImg.bodyImg = bodyImage
          n.noteImg.tailImg = tailImage
@@ -568,13 +596,13 @@ function state:enter(song,difficulty)
 
       if not direction then return end
 
-      local noteConfirmed = false
+      local noteConfirmed = nil
       local songPosition = songData.music.instrumental.PlayingSources[1]:tell()
       for i,note in pairs(songData.notes) do
          if note.singer == "player" and note.dir == direction then
             local difference = math.abs(songPosition-note.tick)
             if difference < 0.15 then
-               noteConfirmed = true
+               noteConfirmed = note
                if songData.music.plyVocals then
                   songData.music.plyVocals.PlayingSources[1]:setVolume(1)
                else
@@ -678,6 +706,8 @@ function state:enter(song,difficulty)
          ["right"] = 4
       }
       local receptor = ui[7][dirToReceptorNumber[direction]]
+
+      receptor:getAnimation("pressed_confirm").loopback = (noteConfirmed and noteConfirmed.length > 0)
       if noteConfirmed then
          receptor:playAnimation("pressed_confirm")
       else
@@ -768,17 +798,36 @@ end
 function state:update(dt)
    local songPosition = songData.music.instrumental.PlayingSources[1]:tell()
    for i,note in pairs(songData.notes) do
-      note.noteImg.img.Position.y = (note.noteImg.receptor.Position.y-50) - (note.tick - songPosition) * songData.speed
-      if note.noteImg.bodyImg and note.noteImg.tailImg then
-         note.noteImg.tailImg.Position.y = (note.noteImg.receptor.Position.y - 50) - ((note.tick + note.length) - songPosition) * songData.speed
-         note.noteImg.tailImg.Position.x = note.noteImg.img.Position.x + 40
+      if currentSettings.downScroll then
+         note.noteImg.img.Position.y = (note.noteImg.receptor.Position.y-50) - (note.tick - songPosition) * songData.speed
+         if note.noteImg.bodyImg and note.noteImg.tailImg then
+            note.noteImg.tailImg.Position.y = (note.noteImg.receptor.Position.y-50) - ((note.tick + note.length) - songPosition) * songData.speed
+            note.noteImg.tailImg.Position.x = note.noteImg.img.Position.x + 40
 
-         note.noteImg.bodyImg.Position.x = note.noteImg.tailImg.Position.x
-         note.noteImg.bodyImg.Position.y = note.noteImg.tailImg.Position.y + 64 -- 64 for the height of the tailImg quad
-         if note.beingHit then
-            note.noteImg.bodyImg.Size.h = math.abs((note.noteImg.tailImg.Position.y + 64) - (note.noteImg.receptor.Position.y + (158/3)))
-         else
-            note.noteImg.bodyImg.Size.h = math.abs((note.noteImg.tailImg.Position.y + 64) - note.noteImg.img.Position.y)
+            note.noteImg.bodyImg.Position.x = note.noteImg.tailImg.Position.x
+            note.noteImg.bodyImg.Position.y = note.noteImg.tailImg.Position.y + 64 -- 64 for the height of the tailImg quad
+            if note.beingHit then
+               note.noteImg.bodyImg.Size.h = -((note.noteImg.tailImg.Position.y + 64) - (note.noteImg.receptor.Position.y + (158/3)))*25
+            else
+               note.noteImg.bodyImg.Size.h = math.abs((note.noteImg.tailImg.Position.y + 64) - note.noteImg.img.Position.y)*25
+            end
+         end
+      else
+         note.noteImg.img.Position.y = (note.noteImg.receptor.Position.y-50) + (note.tick - songPosition) * songData.speed
+         if note.noteImg.bodyImg and note.noteImg.tailImg then
+            note.noteImg.tailImg.Position.y = ((note.noteImg.receptor.Position.y-50) + ((note.tick + note.length) - songPosition) * songData.speed)
+            note.noteImg.tailImg.Position.x = note.noteImg.img.Position.x + 40
+
+            note.noteImg.bodyImg.Position.x = note.noteImg.tailImg.Position.x
+            note.noteImg.bodyImg.Position.y = note.noteImg.img.Position.y
+            if note.beingHit then
+               note.noteImg.bodyImg.Size.h = ((note.noteImg.tailImg.Position.y - 64) - (note.noteImg.receptor.Position.y + (158/3)))*25
+            else
+               note.noteImg.bodyImg.Size.h = ((note.noteImg.tailImg.Position.y - 64) - note.noteImg.img.Position.y)*25
+            end
+
+            note.noteImg.bodyImg.Position.y = note.noteImg.bodyImg.Position.y + (157/2)
+            note.noteImg.tailImg.Position.y = note.noteImg.tailImg.Position.y + (157/2)
          end
       end
 
@@ -793,11 +842,9 @@ function state:update(dt)
       if note.singer == "opponent" then
          if songPosition >= note.tick then
             local actor = getObjectByTag("opponent")
-            local chosenAnim = nil
             for _,dir in pairs({"left","down","up","right"}) do
                actor:stopAnimation(dir)
                if dir == note.dir then
-                  chosenAnim = dir
                   actor:playAnimation(dir)
                end
             end
@@ -813,35 +860,38 @@ function state:update(dt)
                   if anim.dt >= 3 then
                      if songData.music.vocals then
                         songData.music.vocals.PlayingSources[1]:setVolume(1)
+                     else
+                        songData.music.enemyVocals.PlayingSources[1]:setVolume(1)
                      end
+
+                     getObjectByTag("opponent"):getAnimation(note.dir).dt = 1
                      anim.dt = 1
                   end
                end
-               actor:getAnimation(chosenAnim).loopback = true
 
                if songPosition >= note.tick + note.length then
                   ui[8]["noteBody" .. tostring(note.noteImg.index)] = nil
                   ui[8]["noteTail" .. tostring(note.noteImg.index)] = nil
-                  actor:getAnimation(chosenAnim).loopback = false
                   table.remove(songData.notes,i)
                end
             else
                if songData.music.vocals then
                   songData.music.vocals.PlayingSources[1]:setVolume(1)
+               else
+                  songData.music.enemyVocals.PlayingSources[1]:setVolume(1)
                end
 
                note.noteImg.receptor:playAnimation("pressed_confirm")
-               note.noteImg.receptor:getAnimation("pressed_confirm").loopback = false
-
                table.remove(songData.notes,i)
             end
          end
       else
+         local remove = false
          if songPosition >= note.tick+0.15 then
-            if (note.length == 0) or (note.length > 0 and songPosition >= note.tick+note.length+0.15) then
-               local chosenAnim = playerMiss(note.dir)
-
-               if note.length > 0 and note.beingHit then
+            if note.length == 0 then
+               remove = true
+            else
+               if note.beingHit then
                   local anim = note.noteImg.receptor:getAnimation("pressed_confirm")
                   if not anim.playing then
                      note.noteImg.receptor:playAnimation("pressed_confirm")
@@ -849,17 +899,26 @@ function state:update(dt)
                      if anim.dt >= 3 then
                         if songData.music.vocals then
                            songData.music.vocals.PlayingSources[1]:setVolume(1)
+                        else
+                           songData.music.plyVocals.PlayingSources[1]:setVolume(1)
                         end
+
+                        getObjectByTag("player"):getAnimation(note.dir).dt = 1
                         anim.dt = 1
                      end
                   end
                end
 
-               ui[8]["noteBody" .. tostring(note.noteImg.index)] = nil
-               ui[8]["noteTail" .. tostring(note.noteImg.index)] = nil
-               ui[8]["note" .. tostring(note.noteImg.index)] = nil
-               table.remove(songData.notes,i)
+               remove = songPosition >= note.tick+note.length+0.15
             end
+         end
+
+         if remove then
+            playerMiss(note.dir)
+            ui[8]["noteBody" .. tostring(note.noteImg.index)] = nil
+            ui[8]["noteTail" .. tostring(note.noteImg.index)] = nil
+            ui[8]["note" .. tostring(note.noteImg.index)] = nil
+            table.remove(songData.notes,i)
          end
       end
    end

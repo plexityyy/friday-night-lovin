@@ -175,7 +175,7 @@ Please put new playlists into %s/songs.]]
             colour = {r=0,g=1,b=1,a=1},
             pri = 4,
             callback = function()
-                love.system.openURL("https://gitea.com/plex/friday-night-lovin")
+                love.system.openURL("https://github.com/plexityyy/friday-night-lovin")
             end
         },
         {
