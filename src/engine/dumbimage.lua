@@ -17,6 +17,11 @@ function file:init()
     self.Quad = quad or nil
     self.Visible = true
   end
+
+  function DumbImage:destroying()
+    self.Image:release()
+    self.Quad:release()
+  end
   
   function DumbImage:draw()
     if not self.Visible then return end

@@ -52,6 +52,15 @@ function file:init()
     end
   end
 
+  function Actor:destroying()
+    self.Spritesheet:release()
+    for _,v in pairs(self.Animations) do
+      for _,quad in pairs(v.frames) do
+        quad:release()
+      end
+    end
+  end
+
   function Actor:playAnimation(name)
     self.Animations[name].playing = true
     self.Animations[name].dt = 1

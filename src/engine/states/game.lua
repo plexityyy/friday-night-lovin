@@ -1,9 +1,7 @@
 --[[
 
 TODO:
-   1. Make it so that the player can die
-      i. Allow the player to restart ("return" key) the song or return to menu ("escape" key) once in this "substate"
-   2. Add a pause menu
+   1. Add a pause menu
 
 ]]
 
@@ -67,6 +65,8 @@ local eventToFunction = {
    end
 }
 
+local safeKeeping = {}
+
 local currentSettings
 function state:enter(song,difficulty)
    assert(love.filesystem.getDirectoryItems("songs/" .. song),string.format("An error occured with the game.lua scene! (Couldn't find \"%s\" song!)",song))
@@ -75,6 +75,11 @@ function state:enter(song,difficulty)
 
    currentSettings = settings:getSettings()
    local metaData = JSON.decode(love.filesystem.read("songs/" .. song .. "/metadata.json"))
+
+   safeKeeping = {
+      name = song,
+      diff = difficulty
+   }
    songData = {
       music = {
          instrumental = Entity:create(Sound,"instrumentalMusic",love.filesystem.read("songs/" .. song .. "/Inst.ogg"),ENUM_SOUND_STREAM,true)
@@ -774,28 +779,120 @@ function state:enter(song,difficulty)
    end
 end
 
+local alreadyDead = false
 function state:exit()
    for _,v in pairs(stuff) do
       Entity:destroy(v)
    end
 
-   Entity:destroy(songData.music.instrumental)
-   if songData.music.plyVocals then
-      Entity:destroy(songData.music.plyVocals)
-      Entity:destroy(songData.music.enemyVocals)
-   else
-      Entity:destroy(songData.music.vocals)
+   if songData.music then
+      Entity:destroy(songData.music.instrumental)
+      if songData.music.plyVocals then
+         Entity:destroy(songData.music.plyVocals)
+         Entity:destroy(songData.music.enemyVocals)
+      else
+         Entity:destroy(songData.music.vocals)
+      end
    end
 
-   Input:unbind("GameInputPressed")
-   Input:unbind("GameInputReleased")
+   if Input:getBind("GameInputPressed") then
+      Input:unbind("GameInputPressed")
+   end
+   if Input:getBind("GameInputReleased") then
+      Input:unbind("GameInputReleased")
+   end
+
+   for _,script in pairs(songData.scripts) do
+      if script.exit then
+         script:exit()
+      end
+   end
+
+   alreadyDead = false
 
    stuff = {}
    ui = {}
    songData = {}
+   safeKeeping = {}
 end
 
 function state:update(dt)
+   if songData.health and songData.health <= 0 then
+      if not alreadyDead then
+         -- destroy everything, but keep bf around
+         do
+            for i,v in pairs(stuff) do
+               if not v.Tag or v.Tag ~= "player" then
+                  Entity:destroy(v)
+                  stuff[i] = nil
+               end
+            end
+
+            Entity:destroy(songData.music.instrumental)
+            if songData.music.plyVocals then
+               Entity:destroy(songData.music.plyVocals)
+               Entity:destroy(songData.music.enemyVocals)
+            else
+               Entity:destroy(songData.music.vocals)
+            end
+
+            Input:unbind("GameInputPressed")
+            Input:unbind("GameInputReleased")
+
+            ui = {}
+         end
+         stuff.AAUGHHIMDEAD = Entity:create(Sound,"AAUGHHIMDEAD","assets/sounds/death.ogg",ENUM_SOUND_MEMORY)
+         stuff.AAUGHHIMDEAD:createSource():play()
+
+         local bf = getObjectByTag("player")
+         flux.to(Entity.camera.Position,1,{x = bf.Position.x - push:getWidth()/2, y = bf.Position.y - push:getWidth()/3.5}):ease("quadout")
+
+         for name,_ in pairs(bf.Animations) do
+            bf:stopAnimation(name)
+         end
+
+         bf:playAnimation("dead_enter")
+
+         Entity:create(Clock,"deadDelay",-1,0,function()
+            if not bf:getAnimation("dead_enter").playing then
+               bf:playAnimation("dead_idle")
+
+               stuff.DeadMusic = Entity:create(Sound,"gameOver","assets/music/gameOver.ogg",ENUM_SOUND_STREAM)
+               stuff.DeadMusicEnd = Entity:create(Sound,"gameOverEnd","assets/music/gameOverEnd.ogg",ENUM_SOUND_STREAM)
+               stuff.DeadMusic:createSource():play()
+
+               Input:bind("GameOverRestart",{"KeyPressed"},function(key)
+                  if key == "return" then
+                     Entity:destroy(stuff.DeadMusic)
+                     stuff.DeadMusic = nil
+                     stuff.DeadMusicEnd:createSource():play()
+
+                     bf:stopAnimation("dead_enter")
+                     bf:playAnimation("dead_confirm")
+
+                     flux.to(bf.Colour,4,{a=0}):delay(0.5)
+                     stuff.restartClock = Entity:create(Clock,"restartClock",1,4,function()
+                        States:switchState("game",safeKeeping.name,safeKeeping.diff)
+                     end)
+
+                     Input:unbind("GameOverRestart")
+                  elseif key == "escape" then
+                     Input:unbind("GameOverRestart")
+                     States:switchState("menu",true)
+                  end
+               end)
+
+               Entity:destroy("deadDelay")
+            end
+         end)
+
+         alreadyDead = true
+      end
+
+      return
+   end
+   if alreadyDead then return end
+
    local songPosition = songData.music.instrumental.PlayingSources[1]:tell()
    for i,note in pairs(songData.notes) do
       if currentSettings.downScroll then
@@ -1013,17 +1110,19 @@ function state:update(dt)
 end
 
 function state:draw()
-   for name,script in pairs(songData.scripts) do
-      if script then
-         local s,e = pcall(function()
-            if script.draw then
-               script:draw()
-            end
-         end)
+   if songData.scripts then
+      for name,script in pairs(songData.scripts) do
+         if script then
+            local s,e = pcall(function()
+               if script.draw then
+                  script:draw()
+               end
+            end)
 
-         if not s then
-            print("An error occured while trying to run a script's :draw() method. It will be unloaded to prevent console spam.\n\t" .. e)
-            songData.scripts[name] = nil
+            if not s then
+               print("An error occured while trying to run a script's :draw() method. It will be unloaded to prevent console spam.\n\t" .. e)
+               songData.scripts[name] = nil
+            end
          end
       end
    end

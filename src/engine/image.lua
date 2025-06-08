@@ -37,6 +37,13 @@ function file:init()
     self.FitType = ENUM_IMAGE_FITTYPE_STRETCH
     self.Visible = true
   end
+
+  function Image:destroying()
+    self.Image:release()
+    if self.Quad then
+      self.Quad:release()
+    end
+  end
   
   function Image:draw()
     if not self.Visible then return end

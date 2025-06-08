@@ -31,6 +31,10 @@ function InputSystem:unbind(name)
   currentBinds[name] = nil
 end
 
+function InputSystem:getBind(name)
+  return currentBinds[name]
+end
+
 function InputSystem:runBinds(action,...)
   for _,bind in pairs(currentBinds) do
     for _,ac in pairs(bind.actions) do

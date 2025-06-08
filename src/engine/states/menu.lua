@@ -15,7 +15,9 @@ local function checkCollision(x,y,w,h)
     return x < Input.Mouse.x and Input.Mouse.x < x+w and y < Input.Mouse.y and Input.Mouse.y < y+h
 end
 
-function state:enter()
+function state:enter(skipIntro)
+    Entity.camera.Position.x, Entity.camera.Position.y = 0,0
+
     stuff.MainMenuSound = Entity:create(Sound,"menuSong","assets/music/freakyMenu.ogg",ENUM_SOUND_STREAM)
     stuff.MainMenuSound.Source:setLooping(true)
 
@@ -393,12 +395,20 @@ Please put new playlists into %s/songs.]]
 
         timesToFunc[clock.reps]()
     end)
+
+    if skipIntro then
+        stuff.introClock.reps = 12
+        stuff.introClock.dt = 9999
+    end
 end
 
 function state:exit()
     for _,v in pairs(stuff) do
         Entity:destroy(v)
     end
+
+    Input:unbind("Menu_MousePressed")
+
     stuff = {}
 end
 

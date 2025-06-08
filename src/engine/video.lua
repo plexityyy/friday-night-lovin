@@ -24,6 +24,10 @@ function file:init()
     
     self.FitType = "stretch"
   end
+
+  function Video:destroying()
+    self.Source:release()
+  end
   
   function Video:draw()
     love.graphics.setColor(self.Colour.r,self.Colour.g,self.Colour.b,self.Colour.a)
