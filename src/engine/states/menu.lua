@@ -400,7 +400,6 @@ function state:exit()
         Entity:destroy(v)
     end
     stuff = {}
-    collectgarbage("collect")
 end
 
 local somethingSelected = false

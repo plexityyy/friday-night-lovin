@@ -20,6 +20,8 @@ function StatesSystem:switchState(nState,...)
   end
   newState:enter(unpack({...}))
   self.currentState = nState
+
+  collectgarbage("collect")
 end
 
 --

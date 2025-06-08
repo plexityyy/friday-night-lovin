@@ -24,6 +24,35 @@ local function getObjectByTag(tag)
    end
 end
 
+local function playerMiss(dir)
+   local cln = songData.sounds["missNote" .. tostring(love.math.random(1,3))]:createSource()
+   cln:setVolume(0.35)
+   cln:play()
+
+   if songData.music.plyVocals then
+      songData.music.plyVocals.PlayingSources[1]:setVolume(0)
+   else
+      songData.music.vocals.PlayingSources[1]:setVolume(0)
+   end
+   songData.health = songData.health - 5
+   songData.points = songData.points - 10
+   songData.maxPoints = songData.maxPoints + 450
+
+   if songData.streak >= 10 then
+      getObjectByTag("gf"):playAnimation("sad")
+   end
+   songData.streak = 0
+
+   local actor = getObjectByTag("player")
+   local chosenAnim = nil
+   for _,dir in pairs({"left","down","up","right"}) do
+      actor:stopAnimation(dir)
+      actor:stopAnimation(dir .. "_miss")
+   end
+   actor:playAnimation(dir .. "_miss")
+   return chosenAnim
+end
+
 local eventToFunction = {
    ["FocusCamera"] = function(data)
       local newCamPosX, newCamPosY
@@ -368,18 +397,15 @@ function state:enter(song,difficulty)
             y = Entity.camera.Position.y
          }
 
-         -- Calculate the offset so the camera stays centered when scaled
          local camOffsetX = (screenCenterX - Entity.camera.Position.x) * (zoomAmount-1)
          local camOffsetY = (screenCenterY - Entity.camera.Position.y) * (zoomAmount-1)
 
-         -- Apply zoom and position offset
          Entity.camera.Scale = zoomAmount
          Entity.camera.OffsetPosition = {
             x = camOffsetX*1.75,
             y = -camOffsetY
          }
 
-         -- Smoothly tween back to original scale and position
          flux.to(Entity.camera, clock.delay, { Scale = ogScale }):ease("quadout")
          flux.to(Entity.camera.OffsetPosition, clock.delay, {
             x = 0,
@@ -476,6 +502,7 @@ function state:enter(song,difficulty)
          }
       }
       local noteImage = DumbImage:new(NOTES_image,noteQuads[n.dir .. "Note"])
+      noteImage.Visible = false
       n.noteImg.receptor = ui[7][note.d+1]
 
       noteImage.Position = {
@@ -486,12 +513,13 @@ function state:enter(song,difficulty)
       n.noteImg.img = noteImage
 
       if n.length > 0 then
-         local bodyImage = Image:new(NOTES_image,noteQuads[n.dir .. "NoteHoldBody"])
+         local bodyImage = Box:new() --Image:new(NOTES_image,noteQuads[n.dir .. "NoteHoldBody"])
+         bodyImage.Size.w = 51
          local tailImage = DumbImage:new(NOTES_image,noteQuads[n.dir .. "NoteHoldTail"])
-         bodyImage.Size = {
+         --[[bodyImage.Size = {
             w = bodyImage.Image:getWidth(),
             h = bodyImage.Image:getHeight()
-         }
+         }]]
 
          bodyImage.Position,tailImage.Position = {
             x = noteImage.Position.x,
@@ -500,6 +528,7 @@ function state:enter(song,difficulty)
             x = noteImage.Position.x,
             y = -1500
          }
+         bodyImage.Visible, tailImage.Visible = false, false
 
          n.noteImg.bodyImg = bodyImage
          n.noteImg.tailImg = tailImage
@@ -624,14 +653,10 @@ function state:enter(song,difficulty)
                -- player animation
                local actor = getObjectByTag("player")
                for _,v in pairs({"left","down","up","right"}) do
-                  if v == direction then
-                     actor:playAnimation(v)
-                     actor:stopAnimation(v .. "_miss")
-                  else
-                     actor:stopAnimation(v)
-                     actor:stopAnimation(v .. "_miss")
-                  end
+                  actor:stopAnimation(v)
+                  actor:stopAnimation(v .. "_miss")
                end
+               actor:playAnimation(direction)
 
                -- destroy note
                ui[8]["note" .. tostring(note.noteImg.index)] = nil
@@ -689,34 +714,8 @@ function state:enter(song,difficulty)
       for i,note in pairs(songData.notes) do
          if note.singer == "player" and note.length > 0 and note.beingHit and note.dir == direction then
             local difference = math.abs(songData.music.instrumental.PlayingSources[1]:tell()-note.tick-note.length)
-            if difference > 0.06 then
-               local cln = songData.sounds["missNote" .. tostring(love.math.random(1,3))]:createSource()
-               cln:setVolume(0.35)
-               cln:play()
-
-               if songData.music.plyVocals then
-                  songData.music.plyVocals.PlayingSources[1]:setVolume(0)
-               else
-                  songData.music.vocals.PlayingSources[1]:setVolume(0)
-               end
-               songData.health = songData.health - 5
-               songData.points = songData.points - 10
-               songData.maxPoints = songData.maxPoints + 450
-
-               if songData.streak >= 10 then
-                  getObjectByTag("gf"):playAnimation("sad")
-               end
-               songData.streak = 0
-
-               local actor = getObjectByTag("player")
-               for _,dir in pairs({"left","down","up","right"}) do
-                  actor:stopAnimation(dir)
-                  actor:stopAnimation(dir .. "_miss")
-
-                  if dir == note.dir then
-                     actor:playAnimation(dir .. "_miss")
-                  end
-               end
+            if difference > 0.15 then
+               playerMiss(note.dir)
             end
 
             ui[8]["noteBody" .. tostring(note.noteImg.index)] = nil
@@ -764,13 +763,10 @@ function state:exit()
    stuff = {}
    ui = {}
    songData = {}
-
-   collectgarbage("collect")
 end
 
 function state:update(dt)
    local songPosition = songData.music.instrumental.PlayingSources[1]:tell()
-
    for i,note in pairs(songData.notes) do
       note.noteImg.img.Position.y = (note.noteImg.receptor.Position.y-50) - (note.tick - songPosition) * songData.speed
       if note.noteImg.bodyImg and note.noteImg.tailImg then
@@ -778,29 +774,29 @@ function state:update(dt)
          note.noteImg.tailImg.Position.x = note.noteImg.img.Position.x + 40
 
          note.noteImg.bodyImg.Position.x = note.noteImg.tailImg.Position.x
-         --[[if note.beingHit then -- TODO: Fix this bullshit
+         note.noteImg.bodyImg.Position.y = note.noteImg.tailImg.Position.y + 64 -- 64 for the height of the tailImg quad
+         if note.beingHit then
+            note.noteImg.bodyImg.Size.h = math.abs((note.noteImg.tailImg.Position.y + 64) - (note.noteImg.receptor.Position.y + (158/3)))
          else
-            note.noteImg.bodyImg.Size.h = (note.noteImg.tailImg.Position.y + note.noteImg.tailImg.Image:getHeight()) - note.noteImg.img.Position.y
-            note.noteImg.bodyImg.Position.y = ((note.noteImg.img.Position.y + note.noteImg.tailImg.Position.y - note.noteImg.tailImg.Image:getHeight())/2)*2
-         end]]
+            note.noteImg.bodyImg.Size.h = math.abs((note.noteImg.tailImg.Position.y + 64) - note.noteImg.img.Position.y)
+         end
+      end
+
+      if note.noteImg.img.Position.y + note.noteImg.img.Image:getHeight() >= 0 then
+         note.noteImg.img.Visible = true
+         if note.length > 0 then
+            note.noteImg.bodyImg.Visible = true
+            note.noteImg.tailImg.Visible = true
+         end
       end
 
       if note.singer == "opponent" then
          if songPosition >= note.tick then
             local actor = getObjectByTag("opponent")
-
-            local dirToNumb = {
-               ["left"] = 5,
-               ["down"] = 6,
-               ["up"] = 7,
-               ["right"] = 8
-            }
-            local receptorIndex = 0
             local chosenAnim = nil
             for _,dir in pairs({"left","down","up","right"}) do
                actor:stopAnimation(dir)
                if dir == note.dir then
-                  receptorIndex = dirToNumb[dir]
                   chosenAnim = dir
                   actor:playAnimation(dir)
                end
@@ -810,9 +806,9 @@ function state:update(dt)
             if note.length > 0 then
                note.beingHit = true
 
-               local anim = ui[7][receptorIndex]:getAnimation("pressed_confirm")
+               local anim = note.noteImg.receptor:getAnimation("pressed_confirm")
                if not anim.playing then
-                  ui[7][receptorIndex]:playAnimation("pressed_confirm")
+                  note.noteImg.receptor:playAnimation("pressed_confirm")
                else
                   if anim.dt >= 3 then
                      if songData.music.vocals then
@@ -834,8 +830,8 @@ function state:update(dt)
                   songData.music.vocals.PlayingSources[1]:setVolume(1)
                end
 
-               ui[7][receptorIndex]:playAnimation("pressed_confirm")
-               ui[7][receptorIndex]:getAnimation("pressed_confirm").loopback = false
+               note.noteImg.receptor:playAnimation("pressed_confirm")
+               note.noteImg.receptor:getAnimation("pressed_confirm").loopback = false
 
                table.remove(songData.notes,i)
             end
@@ -843,48 +839,12 @@ function state:update(dt)
       else
          if songPosition >= note.tick+0.15 then
             if (note.length == 0) or (note.length > 0 and songPosition >= note.tick+note.length+0.15) then
-               local cln = songData.sounds["missNote" .. tostring(love.math.random(1,3))]:createSource()
-               cln:setVolume(0.35)
-               cln:play()
-
-               if songData.music.plyVocals then
-                  songData.music.plyVocals.PlayingSources[1]:setVolume(0)
-               else
-                  songData.music.vocals.PlayingSources[1]:setVolume(0)
-               end
-               songData.health = songData.health - 5
-               songData.points = songData.points - 10
-               songData.maxPoints = songData.maxPoints + 450
-
-               if songData.streak >= 10 then
-                  getObjectByTag("gf"):playAnimation("sad")
-               end
-               songData.streak = 0
-
-               local actor = getObjectByTag("player")
-               local chosenAnim = nil
-               for _,dir in pairs({"left","down","up","right"}) do
-                  actor:stopAnimation(dir)
-                  actor:stopAnimation(dir .. "_miss")
-
-                  if dir == note.dir then
-                     chosenAnim = note.dir
-                     actor:playAnimation(dir .. "_miss")
-                  end
-               end
+               local chosenAnim = playerMiss(note.dir)
 
                if note.length > 0 and note.beingHit then
-                  local dirToNumb = {
-                     ["left"] = 1,
-                     ["down"] = 2,
-                     ["up"] = 3,
-                     ["right"] = 4
-                  }
-                  local receptorIndex = dirToNumb[chosenAnim]
-
-                  local anim = ui[7][receptorIndex]:getAnimation("pressed_confirm")
+                  local anim = note.noteImg.receptor:getAnimation("pressed_confirm")
                   if not anim.playing then
-                     ui[7][receptorIndex]:playAnimation("pressed_confirm")
+                     note.noteImg.receptor:playAnimation("pressed_confirm")
                   else
                      if anim.dt >= 3 then
                         if songData.music.vocals then
@@ -903,10 +863,11 @@ function state:update(dt)
          end
       end
    end
+
    do
       local acc = "???"
       local rank = "?"
-      if songData.maxPoints ~= 0 and songData.points ~= 0 then
+      if songData.maxPoints ~= 0 then
          local percentage = (songData.points/songData.maxPoints)*100
 
          if percentage >= 99 then
