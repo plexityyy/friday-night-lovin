@@ -121,9 +121,10 @@ Please put new playlists into %s/songs.]]
                     stuff.headsUp.Position = {x=0,y=push:getHeight()/2 - font:getHeight(txt)/2}
                 else
                     local function rebuildButtons()
-                        for name,_ in pairs(stuff) do
+                        for name,v in pairs(stuff) do
                             if string.find(name,"songButton") then
-                                Entity:destroy(name)
+                                v.Visible = false
+                                Entity:destroy(v)
                             end
                         end
 
@@ -132,10 +133,11 @@ Please put new playlists into %s/songs.]]
                             if playlists[i] then
                                 local songButton = Entity:create(Text,"songButton" .. tostring(index),playlists[i].name,love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.1))
                                 songButton.ChangeColour = false
-                                songButton.Position.y = push:getHeight()*0.25
+                                songButton.Position.y = push:getHeight()*0.25 + (songButton.Font:getHeight() * (index-1))
                                 songButton.Limit = push:getWidth()
 
                                 function songButton.MousePressed()
+                                    if not canTouchAnything then return end
                                     stuff.menuSoundConfirm:createSource():play()
                                     for name,_ in pairs(stuff) do
                                         if string.find(name,"songSelected") then
@@ -288,6 +290,7 @@ Please put new playlists into %s/songs.]]
             colour = {r=1,g=1,b=0,a=1},
             pri = 2,
             callback = function() -- to be finished later
+                love.window.showMessageBox("Not finished!","This menu isn't finished yet. Sorry! :P", "info", true)
                 for _,v in pairs({"buttonSONGS","buttonSETTINGS","buttonMERCH","buttonREPO","buttonQUIT","bumpingLogo","createdWithLOVEText"}) do
                     Entity:getObjectsByName(v)[1].Visible = false
                 end

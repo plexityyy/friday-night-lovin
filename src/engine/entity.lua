@@ -18,7 +18,7 @@ function EntitySystem:insert(obj,name)
   table.insert(self.instances,obj)
 end
 
-function EntitySystem:flush() -- oml i gotta shit
+function EntitySystem:flush() -- 0_o
   for i,v in pairs(self.instances) do
     if v.destroying then
       v:destroying()

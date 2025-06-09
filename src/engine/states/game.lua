@@ -1,4 +1,5 @@
 -- 1,000+ LINES HOLLY MOLLY!!
+-- hold notes still look like shit might i add (especially the longer ones)
 
 local state = {}
 local stuff = {}
@@ -519,9 +520,9 @@ function state:enter(song,difficulty)
    for i,note in pairs(chartData.notes[difficulty]) do
       local n = {
          tick = note.t/1000,
-         dir = numberDirToStringDir[note.d].d,
-         singer = numberDirToStringDir[note.d].s,
-         length = note.l/1000,
+         dir = numberDirToStringDir[tonumber(note.d)].d,
+         singer = numberDirToStringDir[tonumber(note.d)].s,
+         length = 0,
          noteImg = {
             img = nil,
             bodyImg = nil,
@@ -530,6 +531,10 @@ function state:enter(song,difficulty)
             index = i
          }
       }
+      if note.l then
+         n.length = note.l/1000
+      end
+
       local noteImage = DumbImage:new(NOTES_image,noteQuads[n.dir .. "Note"])
       noteImage.Visible = false
       n.noteImg.receptor = ui[7][note.d+1]
