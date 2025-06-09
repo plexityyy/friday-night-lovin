@@ -643,7 +643,7 @@ function state:enter(song,difficulty)
             backgroundBox.Size = {w = push:getWidth(), h = push:getHeight()}
             backgroundBox.Colour = {r=0,g=0,b=0,a=0.5}
 
-            local summaryText = Text:new(string.upper(song) .. " (" .. string.upper(difficulty) .. ")", love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.1))
+            local summaryText = Text:new(string.upper(metaData.songName) .. " (" .. string.upper(difficulty) .. ")", love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.1))
             summaryText.Position.x = 150
             summaryText.Limit = push:getWidth()
             summaryText.Align = "right"
@@ -1132,11 +1132,6 @@ function state:update(dt)
                actor:stopAnimation(dir)
                if dir == note.dir then
                   actor:playAnimation(dir)
-               end
-            end
-            if not note.beingHit then
-               if songData.health > 2 then
-                  songData.health = songData.health - 2
                end
             end
             
