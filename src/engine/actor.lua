@@ -22,6 +22,7 @@ function file:init()
 
     self.Framessheet = newFrmSheet
     self.Animationssheet = animationssheet
+    self.Paused = false
 
     -- autoload all animations
     for anim,contents in pairs(self.Animationssheet) do
@@ -84,6 +85,7 @@ function file:init()
   end
   
   function Actor:update(dt)
+    if self.Paused then return end
     for _,anim in pairs(self.Animations) do
       if anim.playing then
         anim.dt = anim.dt + dt*anim.speed

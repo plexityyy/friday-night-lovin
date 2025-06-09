@@ -12,11 +12,11 @@ function file:init()
 
     self.reps = 0
     self.dt = 0
-    self.paused = false
+    self.Paused = false
   end
 
   function Clock:update(dt)
-    if self.paused then return end
+    if self.Paused then return end
 
     self.dt = self.dt + dt
     if self.dt >= self.delay then

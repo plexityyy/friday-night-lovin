@@ -19,8 +19,11 @@ function file:init()
   end
 
   function DumbImage:destroying()
-    self.Image:release()
-    self.Quad:release()
+    -- causes an error for some reason
+    --[[self.Image:release()
+    if self.Quad then
+      self.Quad:release()
+    end]]
   end
   
   function DumbImage:draw()

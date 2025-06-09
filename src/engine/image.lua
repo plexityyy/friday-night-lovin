@@ -39,10 +39,11 @@ function file:init()
   end
 
   function Image:destroying()
-    self.Image:release()
+    -- also causes an error for some reason
+    --[[self.Image:release()
     if self.Quad then
       self.Quad:release()
-    end
+    end]]
   end
   
   function Image:draw()

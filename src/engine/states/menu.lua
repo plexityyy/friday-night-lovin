@@ -1,8 +1,7 @@
 --[[
 
-TODO (after game.lua is done):
+TODO:
     1. Add settings menu
-    2. Make it so that the player can actually choose a song
 
 ]]
 
@@ -58,6 +57,45 @@ function state:enter(skipIntro)
         end)
     end
 
+    local playlists = {}
+    local playListsPage = 1
+    local playListsMaxPages = 1
+
+    local items = 0
+    for i,folder in pairs(love.filesystem.getDirectoryItems("songs/")) do
+        local s,e = pcall(function()
+            local metadata = JSON.decode(love.filesystem.read("songs/" .. folder .. "/metadata.json"))
+            playlists[i] = {
+                meanName = folder,
+                name = metadata.songName,
+                artist = metadata.artist or "Unknown",
+                charter = metadata.charter or "Unknown",
+                version = metadata.version or "1",
+                difficulties = {
+                    easy = false,
+                    normal = false,
+                    hard = false
+                }
+            }
+
+            local chartingData = JSON.decode(love.filesystem.read("songs/" .. folder .. "/chart.json"))
+            playlists[i].difficulties.easy = (chartingData.notes.easy ~= nil)
+            playlists[i].difficulties.normal = (chartingData.notes.normal ~= nil)
+            playlists[i].difficulties.hard = (chartingData.notes.hard ~= nil)
+        end)
+
+        if not s then
+            print(string.format("Error when trying to load \"%s\"!\n%s",folder,e))
+            playlists[i] = nil
+        else
+            items = items + 1
+            if items > 5 then
+                items = 0
+                playListsMaxPages = playListsMaxPages + 1
+            end
+        end
+    end
+
     local menuVHSFont = love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.05)
     local options = {
         {
@@ -65,26 +103,10 @@ function state:enter(skipIntro)
             colour = {r=1,g=0,b=0,a=1},
             pri = 1,
             callback = function()
-                States:switchState("game","blammed","hard")
-
-                --[[local playlists = {}
-
-                for _,folder in pairs(love.filesystem.getDirectoryItems("songs/")) do
-                    local s,e = pcall(function()
-                        error("will add later")
-                    end)
-
-                    if not s then
-                        print(string.format("Error when trying to load \"%s\"!\n%s",folder,e))
-                    else
-                        table.insert(playlists,folder)
-                    end
-                end
-
                 if #playlists == 0 then
                     local txt = [[You have no songs installed!!
 Please put new playlists into %s/songs.]]
-                    --[[local os = love.system.getOS()
+                    local os = love.system.getOS()
                     if os == "Windows" then
                         txt = string.format(txt,"%AppData%/LOVE/friday-night-lovin")
                     elseif os == "Linux" then
@@ -97,6 +119,137 @@ Please put new playlists into %s/songs.]]
                     stuff.headsUp = Entity:create(Text,"headsUp",txt,font)
                     stuff.headsUp.Limit = push:getWidth()
                     stuff.headsUp.Position = {x=0,y=push:getHeight()/2 - font:getHeight(txt)/2}
+                else
+                    local function rebuildButtons()
+                        for name,_ in pairs(stuff) do
+                            if string.find(name,"songButton") then
+                                Entity:destroy(name)
+                            end
+                        end
+
+                        local index = 1
+                        for i = (playListsPage - 1) * 5 + 1,math.min(playListsPage * 5, #playlists) do
+                            if playlists[i] then
+                                local songButton = Entity:create(Text,"songButton" .. tostring(index),playlists[i].name,love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.1))
+                                songButton.ChangeColour = false
+                                songButton.Position.y = push:getHeight()*0.25
+                                songButton.Limit = push:getWidth()
+
+                                function songButton.MousePressed()
+                                    stuff.menuSoundConfirm:createSource():play()
+                                    for name,_ in pairs(stuff) do
+                                        if string.find(name,"songSelected") then
+                                            Entity:destroy(name)
+                                        end
+                                    end
+
+                                    local box = Entity:create(Box,"songSelectedBox")
+                                    box.Size = {w=push:getWidth()*0.65,h=push:getHeight()*0.22}
+                                    box.Position = {x=push:getWidth()/2-box.Size.w/2,y=0}
+                                    box.Colour = {r=0,g=0,b=0,a=0.5}
+
+                                    local songName = Entity:create(Text,"songSelectedSongName","\"" .. string.upper(playlists[i].name) .. "\"",love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.1))
+                                    songName.Position = {x=box.Position.x,y=5}
+                                    songName.Limit = box.Size.w
+
+                                    local creditsText = Entity:create(Text,"songSelectedCreditsText","Artist(s): " .. playlists[i].artist .. ", Charter(s): " .. playlists[i].charter,love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.03))
+                                    creditsText.Position = {x=box.Position.x,y=box.Size.h/2}
+                                    creditsText.Limit = box.Size.w
+                                    
+                                    for _,v in pairs({"easy","normal","hard"}) do
+                                        if playlists[i].difficulties[v] then
+                                            local diffButton = Entity:create(Text,"songSelectedDifficulty" .. v,string.upper(v),menuVHSFont)
+                                            diffButton.Position.y = box.Size.h - diffButton.Font:getHeight()
+
+                                            diffButton.Limit = box.Size.w*0.3
+                                            if v == "easy" then
+                                                diffButton.Colour = {r=0,g=1,b=0,a=1}
+                                                diffButton.Position.x = box.Position.x
+                                            elseif v == "normal" then
+                                                diffButton.Colour = {r=1,g=1,b=0,a=1}
+                                                diffButton.Position.x = box.Position.x + (box.Size.w/2) - (diffButton.Font:getWidth(diffButton.Text)/2)*2
+                                                
+                                            elseif v == "hard" then
+                                                diffButton.Colour = {r=1,g=0,b=0,a=1}
+                                                diffButton.Position.x = box.Position.x + box.Size.w - diffButton.Font:getWidth(diffButton.Text)*3
+                                            end
+
+                                            function diffButton.MousePressed()
+                                                pressedEvent(diffButton)
+                                            end
+                                            function diffButton.Event()
+                                                States:switchState("game", playlists[i].meanName,v)
+                                            end
+
+                                            stuff["songSelectedDifficulty" .. v] = diffButton
+                                        end
+                                    end
+
+                                    stuff.songSelectedCreditsText = creditsText
+                                    stuff.songSelectedSongName = songName
+                                    stuff.songSelectedBox = box
+                                end
+
+                                stuff["songButton" .. tostring(index)] = songButton
+                                index = index + 1
+                            end
+                        end
+                    end
+
+                    local pagesText = Entity:create(Text,"pagesText","Page: " .. tostring(playListsPage),menuVHSFont)
+                    pagesText.Limit = push:getWidth()*0.15
+                    pagesText.Position = {x=push:getWidth()/2-menuVHSFont:getWidth("BACK"),y=stuff.bar.Position.y + stuff.bar.Size.h/4 - (menuVHSFont:getHeight("BACK")/2)}
+
+                    local previousButton = Entity:create(Text,"previousButton","PREVIOUS", menuVHSFont)
+                    previousButton.Limit = push:getWidth()*0.25
+                    previousButton.Position = {x=push:getWidth()*0.02,y=stuff.bar.Position.y + stuff.bar.Size.h/2 - (menuVHSFont:getHeight(previousButton.Text)/2)}
+                    previousButton.Visible = false
+                    previousButton.ChangeColour = false
+
+                    local nextButton = Entity:create(Text,"nextButton","NEXT", menuVHSFont)
+                    nextButton.Limit = push:getWidth()*0.25
+                    nextButton.Position = {x=push:getWidth()*0.75,y=stuff.bar.Position.y + stuff.bar.Size.h/2 - (menuVHSFont:getHeight(nextButton.Text)/2)}
+                    nextButton.ChangeColour = false
+
+                    if playListsMaxPages == 1 then
+                        nextButton.Visible = false
+                    end
+
+                    function previousButton.MousePressed()
+                        pressedEvent(previousButton)
+                    end
+                    function previousButton.Event()
+                        playListsPage = playListsPage - 1
+                        if playListsPage < 1 then playListsPage = 1 end
+                        pagesText.Text = "Page: " .. tostring(playListsPage)
+                        if playListsPage == 1 then
+                            previousButton.Visible = false
+                        end
+                        nextButton.Visible = true
+
+                        rebuildButtons()
+                    end
+
+                    function nextButton.MousePressed()
+                        pressedEvent(nextButton)
+                    end
+                    function nextButton.Event()
+                        playListsPage = playListsPage + 1
+                        if playListsPage > #playlists then playListsPage = #playlists end
+                        pagesText.Text = "Page: " .. tostring(playListsPage)
+                        if playListsPage == #playlists then
+                            nextButton.Visible = false
+                        end
+                        previousButton.Visible = true
+
+                        rebuildButtons()
+                    end
+
+                    stuff.pagesText = pagesText
+                    stuff.nextButton = nextButton
+                    stuff.previousButton = previousButton
+
+                    rebuildButtons()
                 end
 
                 for _,v in pairs({"buttonSONGS","buttonSETTINGS","buttonMERCH","buttonREPO","buttonQUIT","bumpingLogo","createdWithLOVEText"}) do
@@ -106,25 +259,28 @@ Please put new playlists into %s/songs.]]
                 local backButton = Entity:create(Text,"buttonBack","BACK",menuVHSFont)
                 backButton.Colour = {r=1,g=0,b=0,a=1}
                 backButton.Limit = push:getWidth()*0.15
-                backButton.Position = {x=push:getWidth()/2-menuVHSFont:getWidth("BACK"),y=stuff.bar.Position.y + stuff.bar.Size.h/2 - (menuVHSFont:getHeight("BACK")/2)}
+                backButton.Position = {x=push:getWidth()/2-menuVHSFont:getWidth("BACK"),y=stuff.bar.Position.y + stuff.bar.Size.h/1.2 - (menuVHSFont:getHeight("BACK")/2)}
 
                 function backButton.MousePressed()
                     pressedEvent(backButton)
                 end
 
                 function backButton.Event()
-                    Entity:destroy("buttonBack")
-                    stuff.backButton = nil
-
-                    Entity:destroy("headsUp")
-                    stuff.headsUp = nil
-
+                    for _,v in pairs({"buttonBack","headsUp","pagesText","previousButton","nextButton","songSelectedCreditsText","songSelectedSongName","songSelectedBox","songSelectedDifficultyeasy","songSelectedDifficultynormal","songSelectedDifficultyhard"}) do
+                        Entity:destroy(v)
+                        stuff[v] = nil
+                    end
+                    for i = 1,6 do
+                        Entity:destroy("songButton" .. tostring(i))
+                        stuff["songButton" .. tostring(i)] = nil
+                    end
+                    
                     for _,v in pairs({"buttonSONGS","buttonSETTINGS","buttonMERCH","buttonREPO","buttonQUIT","bumpingLogo","createdWithLOVEText"}) do
                         Entity:getObjectsByName(v)[1].Visible = true
                     end
                 end
 
-                stuff.backButton = backButton]]
+                stuff.backButton = backButton
             end
         },
         {
@@ -407,7 +563,9 @@ function state:exit()
         Entity:destroy(v)
     end
 
-    Input:unbind("Menu_MousePressed")
+    if Input:getBind("Menu_MousePressed") then
+        Input:unbind("Menu_MousePressed")
+    end
 
     stuff = {}
 end
@@ -431,7 +589,9 @@ function state:update(dt)
 
                         v.ogText = v.Text
                         v.Text = "> " .. v.ogText .. " <"
-                        flux.to(stuff.wallpaper.Colour,2,{r=math.max(128/255,v.Colour.r),g=math.max(128/255,v.Colour.g),b=math.max(128/255,v.Colour.b),a=v.Colour.a})
+                        if v.ChangeColour or v.ChangeColour == nil then
+                            flux.to(stuff.wallpaper.Colour,2,{r=math.max(128/255,v.Colour.r),g=math.max(128/255,v.Colour.g),b=math.max(128/255,v.Colour.b),a=v.Colour.a})
+                        end
 
                         stuff.scrollSound:createSource():play()
                     end

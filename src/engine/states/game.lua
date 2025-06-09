@@ -1,9 +1,4 @@
---[[
-
-TODO:
-   1. Add a pause menu
-
-]]
+-- 1,000+ LINES HOLLY MOLLY!!
 
 local state = {}
 local stuff = {}
@@ -66,7 +61,7 @@ local eventToFunction = {
 }
 
 local safeKeeping = {}
-
+local paused = false
 local currentSettings
 function state:enter(song,difficulty)
    assert(love.filesystem.getDirectoryItems("songs/" .. song),string.format("An error occured with the game.lua scene! (Couldn't find \"%s\" song!)",song))
@@ -124,14 +119,19 @@ function state:enter(song,difficulty)
       health = 50,
       points = 0,
       streak = 0,
-      maxPoints = 0
+      maxPoints = 0,
+      songTimer = 0
    }
+   songData.music.instrumental.Source:setLooping(true)
 
    if love.filesystem.getInfo("songs/" .. song .. "/PlayerVocals.ogg") and love.filesystem.getInfo("songs/" .. song .. "/EnemyVocals.ogg") then
       songData.music.plyVocals = Entity:create(Sound,"plyVocalsMusic",love.filesystem.read("songs/" .. song .. "/PlayerVocals.ogg"),ENUM_SOUND_STREAM,true)
+      songData.music.plyVocals.Source:setLooping(true)
       songData.music.enemyVocals = Entity:create(Sound,"enemyVocalsMusic",love.filesystem.read("songs/" .. song .. "/EnemyVocals.ogg"),ENUM_SOUND_STREAM,true)
+      songData.music.enemyVocals.Source:setLooping(true)
    elseif love.filesystem.getInfo("songs/" .. song .. "/Vocals.ogg") then
       songData.music.vocals = Entity:create(Sound,"vocalsMusic",love.filesystem.read("songs/" .. song .. "/Vocals.ogg"),ENUM_SOUND_STREAM,true)
+      songData.music.vocals.Source:setLooping(true)
    else
       error(string.format("Error when trying to load \"%s\"! (Song has no vocal files, or at least not one that's valid.)",song))
    end
@@ -590,6 +590,82 @@ function state:enter(song,difficulty)
 
    -- bind key actions
    Input:bind("GameInputPressed",{"KeyPressed"},function(key)
+      if key == 'escape' or key == 'return' then
+         paused = not paused
+
+         if paused then
+            local music = Entity:create(Sound,"pauseMenuMusic","assets/music/breakfast.ogg",ENUM_SOUND_STREAM)
+            music.Source:setLooping(true)
+            music:createSource():play()
+
+            local backgroundBox = Box:new()
+            backgroundBox.Size = {w = push:getWidth(), h = push:getHeight()}
+            backgroundBox.Colour = {r=0,g=0,b=0,a=0.5}
+
+            local summaryText = Text:new(string.upper(song) .. " (" .. string.upper(difficulty) .. ")", love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.1))
+            summaryText.Position.x = 150
+            summaryText.Limit = push:getWidth()
+            summaryText.Align = "right"
+            flux.to(summaryText.Position,2,{x=0}):ease("quadout")
+
+            local controlsText = Text:new("Escape/Return -> Resume song\nR -> Restart song\nQ -> Return to main menu", love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.05))
+            controlsText.Limit = push:getWidth()
+            controlsText.Position.y = push:getHeight()/2 - controlsText.Font:getHeight(controlsText.Text)/2
+
+            ui[9] = backgroundBox
+            ui[10] = summaryText
+            ui[11] = controlsText
+
+            Input:bind("PauseMenuPressed",{"KeyPressed"},function(key)
+               if key == "r" then
+                  Entity:destroy("pauseMenuMusic")
+                  States:switchState("game",song,difficulty)
+               elseif key == "q" then
+                  Entity:destroy("pauseMenuMusic")
+                  States:switchState("menu",true)
+               end
+            end)
+
+            for _,v in pairs(Entity.instances) do
+               if v.Paused ~= nil then
+                  v.Paused = true
+               end
+            end
+
+            songData.music.instrumental.PlayingSources[1]:pause()
+            if songData.music.vocals then
+               songData.music.vocals.PlayingSources[1]:pause()
+            else
+               songData.music.plyVocals.PlayingSources[1]:pause()
+               songData.music.enemyVocals.PlayingSources[1]:pause()
+            end
+         else
+            Entity:destroy("pauseMenuMusic")
+            Input:unbind("PauseMenuPressed")
+
+            for i = 9,11 do
+               ui[i] = nil
+            end
+
+            for _,v in pairs(Entity.instances) do
+               if v.Paused ~= nil then
+                  v.Paused = false
+               end
+            end
+
+            songData.music.instrumental.PlayingSources[1]:play()
+            if songData.music.vocals then
+               songData.music.vocals.PlayingSources[1]:play()
+            else
+               songData.music.plyVocals.PlayingSources[1]:play()
+               songData.music.enemyVocals.PlayingSources[1]:play()
+            end
+         end
+
+         return
+      end
+      if paused then return end
+
       local direction = nil
 
       for d,action in pairs(currentSettings.keybinds) do
@@ -735,6 +811,7 @@ function state:enter(song,difficulty)
       end
    end)
    Input:bind("GameInputReleased",{"KeyReleased"},function(key)
+      if paused then return end
       local direction = nil
 
       for d,action in pairs(currentSettings.keybinds) do
@@ -784,6 +861,9 @@ function state:exit()
    for _,v in pairs(stuff) do
       Entity:destroy(v)
    end
+   for _,v in pairs(ui) do
+      Entity:destroy(v)
+   end
 
    if songData.music then
       Entity:destroy(songData.music.instrumental)
@@ -801,6 +881,9 @@ function state:exit()
    if Input:getBind("GameInputReleased") then
       Input:unbind("GameInputReleased")
    end
+   if Input:getBind("PauseMenuPressed") then
+      Input:unbind("PauseMenuPressed")
+   end
 
    for _,script in pairs(songData.scripts) do
       if script.exit then
@@ -808,12 +891,15 @@ function state:exit()
       end
    end
 
+   paused = false
    alreadyDead = false
 
    stuff = {}
    ui = {}
    songData = {}
    safeKeeping = {}
+
+   Entity:flush()
 end
 
 function state:update(dt)
@@ -891,7 +977,14 @@ function state:update(dt)
 
       return
    end
-   if alreadyDead then return end
+
+   if songData.songTimer >= songData.music.instrumental.PlayingSources[1]:getDuration() then -- assume the song ended
+      States:switchState("menu",true)
+      return
+   end
+
+   if alreadyDead or paused then return end
+   songData.songTimer = songData.songTimer + dt
 
    local songPosition = songData.music.instrumental.PlayingSources[1]:tell()
    for i,note in pairs(songData.notes) do
