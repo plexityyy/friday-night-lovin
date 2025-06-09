@@ -8,10 +8,6 @@ local currentSettings = {
         up = 'up',
         right = 'right'
     },
-    screenshot = 'f11',
-    volumeUp = '=',
-    volumeDown = '-',
-
     downScroll = false,
     middleScroll = false,
     fullScreen = false,
@@ -62,8 +58,11 @@ function settings:getSettings()
     return currentSettings
 end
 
-function settings:changeSetting(name,value)
+function settings:changeSetting(name,value,save)
     currentSettings[name] = value
+    if save then
+        self:saveSettings()
+    end
 end
 
 function settings:changeKeybind(direction,key)

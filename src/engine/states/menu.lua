@@ -9,6 +9,7 @@ local state = {}
 local stuff = {}
 
 local canTouchAnything = true
+local settingsMessageShown = false
 
 local function checkCollision(x,y,w,h)
     return x < Input.Mouse.x and Input.Mouse.x < x+w and y < Input.Mouse.y and Input.Mouse.y < y+h
@@ -290,7 +291,10 @@ Please put new playlists into %s/songs.]]
             colour = {r=1,g=1,b=0,a=1},
             pri = 2,
             callback = function() -- to be finished later
-                love.window.showMessageBox("Not finished!","This menu isn't finished yet. Sorry! :P", "info", true)
+                if not settingsMessageShown then
+                    love.window.showMessageBox("Not finished!","This menu isn't finished yet, but you can interact with most options.\nSorry! :P", "info", true)
+                    settingsMessageShown = true
+                end
                 for _,v in pairs({"buttonSONGS","buttonSETTINGS","buttonMERCH","buttonREPO","buttonQUIT","bumpingLogo","createdWithLOVEText"}) do
                     Entity:getObjectsByName(v)[1].Visible = false
                 end
@@ -305,15 +309,232 @@ Please put new playlists into %s/songs.]]
                 backButton.Limit = push:getWidth()*0.15
                 backButton.Position = {x=push:getWidth()/2-menuVHSFont:getWidth("BACK"),y=stuff.bar.Position.y + stuff.bar.Size.h/2 - (menuVHSFont:getHeight("BACK")/2)}
 
+                local currentSettings = settings:getSettings()
+                local settingsVHSFont = love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.05)
+
+                -- DOWNSCROLL
+                local downScrollButton = Entity:create(Text,"downScrollButton", "Downscroll?: YES", settingsVHSFont)
+                downScrollButton.ChangeColour = false
+                downScrollButton.Limit = stuff.settingsBAR.Size.w/2
+                downScrollButton.Position = {
+                    x = stuff.settingsBAR.Position.x,
+                    y = stuff.settingsBAR.Position.y+75
+                }
+                if not currentSettings.downScroll then
+                    downScrollButton.Text = "Downscroll?: NO"
+                end
+                function downScrollButton.MousePressed()
+                    pressedEvent(downScrollButton)
+                end
+                function downScrollButton.Event()
+                    currentSettings.downScroll = not currentSettings.downScroll
+                    settings:changeSetting("downScroll",currentSettings.downScroll,true)
+
+                    if currentSettings.downScroll then
+                        downScrollButton.Text = "Downscroll?: YES"
+                    else
+                        downScrollButton.Text = "Downscroll?: NO"
+                    end
+                end
+                -- MIDDLESCROLL
+                local middleScrollButton = Entity:create(Text,"middleScrollButton", "Middlescroll?: YES", settingsVHSFont)
+                middleScrollButton.ChangeColour = false
+                middleScrollButton.Limit = stuff.settingsBAR.Size.w/2
+                middleScrollButton.Position = {
+                    x = stuff.settingsBAR.Position.x,
+                    y = stuff.settingsBAR.Position.y+75+settingsVHSFont:getHeight()
+                }
+                if not currentSettings.middleScroll then
+                    middleScrollButton.Text = "Middlescroll?: NO"
+                end
+                function middleScrollButton.MousePressed()
+                    pressedEvent(middleScrollButton)
+                end
+                function middleScrollButton.Event()
+                    currentSettings.middleScroll = not currentSettings.middleScroll
+                    settings:changeSetting("middleScroll",currentSettings.middleScroll,true)
+
+                    if currentSettings.middleScroll then
+                        middleScrollButton.Text = "Middlescroll?: YES"
+                    else
+                        middleScrollButton.Text = "Middlescroll?: NO"
+                    end
+                end
+
+                -- VSYNC
+                local vsyncButton = Entity:create(Text,"vsyncButton", "V-Sync?: YES", settingsVHSFont)
+                vsyncButton.ChangeColour = false
+                vsyncButton.Limit = stuff.settingsBAR.Size.w/2
+                vsyncButton.Position = {
+                    x = stuff.settingsBAR.Position.x,
+                    y = stuff.settingsBAR.Position.y+75+(settingsVHSFont:getHeight()*2)
+                }
+                if not currentSettings.vsync then
+                    vsyncButton.Text = "V-Sync?: NO"
+                end
+                function vsyncButton.MousePressed()
+                    pressedEvent(vsyncButton)
+                end
+                function vsyncButton.Event()
+                    currentSettings.vsync = not currentSettings.vsync
+                    settings:changeSetting("vsync",currentSettings.vsync,true)
+                    settings:applyPlayerSettings()
+
+                    if currentSettings.vsync then
+                        vsyncButton.Text = "V-Sync?: YES"
+                    else
+                        vsyncButton.Text = "V-Sync?: NO"
+                    end
+                end
+                
+                -- ANTI-ALIASING
+                local msaaButton = Entity:create(Text,"msaaButton", "Anti-Aliasing?: YES", settingsVHSFont)
+                msaaButton.ChangeColour = false
+                msaaButton.Limit = stuff.settingsBAR.Size.w/2
+                msaaButton.Position = {
+                    x = stuff.settingsBAR.Position.x,
+                    y = stuff.settingsBAR.Position.y+75+(settingsVHSFont:getHeight()*3)
+                }
+                if not currentSettings.antiAliasing then
+                    msaaButton.Text = "Anti-Aliasing?: NO"
+                end
+                function msaaButton.MousePressed()
+                    pressedEvent(msaaButton)
+                end
+                function msaaButton.Event()
+                    currentSettings.antiAliasing = not currentSettings.antiAliasing
+                    settings:changeSetting("antiAliasing",currentSettings.antiAliasing,true)
+                    settings:applyPlayerSettings()
+
+                    if currentSettings.antiAliasing then
+                        msaaButton.Text = "Anti-Aliasing?: YES"
+                    else
+                        msaaButton.Text = "Anti-Aliasing?: NO"
+                    end
+                end
+
+                -- FULLSCREEN
+                local fullscreenButton = Entity:create(Text,"fullscreenButton", "Fullscreen?: YES", settingsVHSFont)
+                fullscreenButton.ChangeColour = false
+                fullscreenButton.Limit = stuff.settingsBAR.Size.w/2
+                fullscreenButton.Position = {
+                    x = stuff.settingsBAR.Position.x,
+                    y = stuff.settingsBAR.Position.y+75+(settingsVHSFont:getHeight()*4)
+                }
+                if not currentSettings.fullScreen then
+                    fullscreenButton.Text = "Fullscreen?: NO"
+                end
+                function fullscreenButton.MousePressed()
+                    pressedEvent(fullscreenButton)
+                end
+                function fullscreenButton.Event()
+                    currentSettings.fullScreen = not currentSettings.fullScreen
+                    settings:changeSetting("fullScreen",currentSettings.fullScreen,true)
+                    settings:applyPlayerSettings()
+
+                    if currentSettings.fullScreen then
+                        fullscreenButton.Text = "Fullscreen?: YES"
+                    else
+                        fullscreenButton.Text = "Fullscreen?: NO"
+                    end
+                end
+
+                -- HIT VOLUME
+                local hitVolumeButton = Entity:create(Text,"hitVolumeButton", "Hit Volume?: " .. tostring(math.floor(currentSettings.hitVolume*100)) .. "%", settingsVHSFont)
+                local hitVolumeButtonUp = Entity:create(Text,"hitVolumeButtonUp", "^", settingsVHSFont)
+                hitVolumeButtonUp.ChangeColour = false
+                local hitVolumeButtonDown = Entity:create(Text,"hitVolumeButtonDown", "v", settingsVHSFont)
+                hitVolumeButtonDown.ChangeColour = false
+
+                hitVolumeButton.Limit = (stuff.settingsBAR.Size.w/2) - settingsVHSFont:getWidth(hitVolumeButtonUp.Text) - settingsVHSFont:getWidth(hitVolumeButtonDown.Text)
+                hitVolumeButtonUp.Limit = settingsVHSFont:getWidth(hitVolumeButtonUp.Text)
+                hitVolumeButtonDown.Limit = settingsVHSFont:getWidth(hitVolumeButtonDown.Text)
+                hitVolumeButtonDown.Align = "left"
+                hitVolumeButtonUp.Align = "right"
+
+                hitVolumeButtonDown.DontDisplayBorders = true
+                hitVolumeButtonUp.DontDisplayBorders = true
+
+                hitVolumeButtonDown.Position = {
+                    x = stuff.settingsBAR.Position.x,
+                    y = stuff.settingsBAR.Position.y+75+(settingsVHSFont:getHeight()*5)
+                }
+                hitVolumeButton.Position = {
+                    x = hitVolumeButtonDown.Position.x + hitVolumeButtonDown.Limit + 15,
+                    y = hitVolumeButtonDown.Position.y
+                }
+                hitVolumeButtonUp.Position = {
+                    x = hitVolumeButton.Position.x + hitVolumeButton.Limit + hitVolumeButtonUp.Limit/2,
+                    y = hitVolumeButton.Position.y
+                }
+
+                local hitSoundEffect = Entity:create(Sound,"hitSoundEffect","assets/sounds/hit.ogg",ENUM_SOUND_MEMORY)
+
+                function hitVolumeButtonDown.MousePressed()
+                    if not canTouchAnything then return end
+
+                    currentSettings.hitVolume = currentSettings.hitVolume - 0.1
+                    if currentSettings.hitVolume < 0 then currentSettings.hitVolume = 0 end
+                    settings:changeSetting("hitVolume",currentSettings.hitVolume,true)
+
+                    hitSoundEffect.Source:setVolume(currentSettings.hitVolume)
+                    hitSoundEffect:createSource():play()
+
+                    hitVolumeButton.Text = "Hit Volume?: " .. tostring(math.floor(currentSettings.hitVolume*100)) .. "%"
+                end
+
+                function hitVolumeButtonUp.MousePressed()
+                    if not canTouchAnything then return end
+
+                    currentSettings.hitVolume = currentSettings.hitVolume + 0.1
+                    if currentSettings.hitVolume > 1 then currentSettings.hitVolume = 1 end
+                    settings:changeSetting("hitVolume",currentSettings.hitVolume,true)
+
+                    hitSoundEffect.Source:setVolume(currentSettings.hitVolume)
+                    hitSoundEffect:createSource():play()
+
+                    hitVolumeButton.Text = "Hit Volume?: " .. tostring(math.floor(currentSettings.hitVolume*100)) .. "%"
+                end
+
+                -- KEY BINDS
+                for i,v in pairs({"Left","Down","Up","Right"}) do
+                    local keyBindingButton = Entity:create(Text,"keyBindingButton" .. v, v .. "?: " .. currentSettings.keybinds[v:lower()]:upper(), settingsVHSFont)
+                    keyBindingButton.ChangeColour = false
+                    keyBindingButton.Limit = stuff.settingsBAR.Size.w/2
+                    keyBindingButton.Position = {
+                        x = stuff.settingsBAR.Position.x+stuff.settingsBAR.Size.w/2,
+                        y = stuff.settingsBAR.Position.y+75+(settingsVHSFont:getHeight()*(i-1))
+                    }
+
+                    function keyBindingButton.MousePressed()
+                        pressedEvent(keyBindingButton)
+                    end
+                    function keyBindingButton.Event()
+                        love.window.showMessageBox("Sorry!","This option doesn't do anything yet.","info",true)
+                    end
+
+                    stuff["keyBindingButton" .. v] = keyBindingButton
+                end
+
+                stuff.hitSoundEffect = hitSoundEffect
+                stuff.hitVolumeButton = hitVolumeButton
+                stuff.hitVolumeButtonUp = hitVolumeButtonUp
+                stuff.hitVolumeButtonDown = hitVolumeButtonDown
+                stuff.fullscreenButton = fullscreenButton
+                stuff.msaaButton = msaaButton
+                stuff.vsyncButton = vsyncButton
+                stuff.downScrollButton = downScrollButton
+                stuff.middleScrollButton = middleScrollButton
+
                 function backButton.MousePressed()
                     pressedEvent(backButton)
                 end
 
                 function backButton.Event()
-                    Entity:destroy("buttonBack")
-                    Entity:destroy("settingsBAR")
-                    stuff.backButton = nil
-                    stuff.settingsBAR = nil
+                    for _,v in pairs({"backButton","settingsBAR","downScrollButton","middleScrollButton","vsyncButton","msaaButton","fullscreenButton","hitVolumeButton","hitVolumeButtonUp","hitVolumeButtonDown","hitSoundEffect","keyBindingButtonLeft","keyBindingButtonDown","keyBindingButtonUp","keyBindingButtonRight"}) do
+                        Entity:destroy(stuff[v])
+                        stuff[v] = nil
+                    end
 
                     for _,v in pairs({"buttonSONGS","buttonSETTINGS","buttonMERCH","buttonREPO","buttonQUIT","bumpingLogo","createdWithLOVEText"}) do
                         Entity:getObjectsByName(v)[1].Visible = true
@@ -327,25 +548,19 @@ Please put new playlists into %s/songs.]]
             text = "MERCH",
             colour = {r=0,g=1,b=0,a=1},
             pri = 3,
-            callback = function()
-                love.system.openURL("https://needlejuicerecords.com/pages/friday-night-funkin")
-            end
+            callback = function() love.system.openURL("https://needlejuicerecords.com/pages/friday-night-funkin") end
         },
         {
             text = "REPO",
             colour = {r=0,g=1,b=1,a=1},
             pri = 4,
-            callback = function()
-                love.system.openURL("https://github.com/plexityyy/friday-night-lovin")
-            end
+            callback = function() love.system.openURL("https://github.com/plexityyy/friday-night-lovin") end
         },
         {
             text = "QUIT",
             colour = {r=0,g=0,b=1,a=1},
             pri = 5,
-            callback = function()
-                love.event.quit()
-            end
+            callback = function() love.event.quit() end
         }
     }
 
@@ -590,8 +805,10 @@ function state:update(dt)
                         v.alreadyIn = true
                         somethingSelected = true
 
-                        v.ogText = v.Text
-                        v.Text = "> " .. v.ogText .. " <"
+                        if not v.DontDisplayBorders then
+                            v.Text = "> " .. v.Text .. " <"
+                        end
+
                         if v.ChangeColour or v.ChangeColour == nil then
                             flux.to(stuff.wallpaper.Colour,2,{r=math.max(128/255,v.Colour.r),g=math.max(128/255,v.Colour.g),b=math.max(128/255,v.Colour.b),a=v.Colour.a})
                         end
@@ -601,8 +818,7 @@ function state:update(dt)
                 end
             else
                 if v.alreadyIn then
-                    v.Text = v.ogText
-                    v.ogText = nil
+                    v.Text = v.Text:gsub("> ",""):gsub(" <","")
                     v.alreadyIn = false
                     somethingSelected = false
                 end

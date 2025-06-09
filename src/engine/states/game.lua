@@ -43,6 +43,34 @@ local function playerMiss(dir)
    return chosenAnim
 end
 
+local function calculateAccuracy()
+   local acc = "???"
+   local rank = "?"
+   if songData.maxPoints ~= 0 then
+      local percentage = (songData.points/songData.maxPoints)*100
+
+      if percentage == 100 then
+         rank = "S+"
+      elseif percentage >= 99 then
+         rank = "S"
+      elseif percentage >= 90 then
+         rank = "A"
+      elseif percentage >= 80 then
+         rank = "B"
+      elseif percentage >= 70 then
+         rank = "C"
+      elseif percentage >= 60 then
+         rank = "D"
+      else
+         rank = "F"
+      end
+
+      acc = string.format("%.1f",percentage)
+   end
+
+   ui[6].Text = "Score: " .. tostring(songData.points) .. " | Accuracy: " .. acc .. "% (" .. rank .. ")"
+end
+
 local eventToFunction = {
    ["FocusCamera"] = function(data)
       local newCamPosX, newCamPosY
@@ -58,6 +86,11 @@ local eventToFunction = {
       end
 
       flux.to(Entity.camera.Position,1,{x = newCamPosX, y = newCamPosY}):ease("quadout")
+   end,
+   ["ChangeBPM"] = function(data)
+      stuff.bumpinClock.delay = 60/data.bpm
+      stuff.bumpinIcons.delay = 120/data.bpm
+      stuff.bumpinClock.dt,stuff.bumpinIcons.dt = 0,0
    end
 }
 
@@ -121,8 +154,11 @@ function state:enter(song,difficulty)
       points = 0,
       streak = 0,
       maxPoints = 0,
-      songTimer = 0
+      songTimer = 0,
+      started = false,
+      hitSound = Entity:create(Sound,"noteHisSound","assets/sounds/hit.ogg",ENUM_SOUND_MEMORY)
    }
+   songData.hitSound.Source:setVolume(currentSettings.hitVolume)
    songData.music.instrumental.Source:setLooping(true)
 
    if love.filesystem.getInfo("songs/" .. song .. "/PlayerVocals.ogg") and love.filesystem.getInfo("songs/" .. song .. "/EnemyVocals.ogg") then
@@ -344,7 +380,7 @@ function state:enter(song,difficulty)
    healthBar_BackgroundBorders.FillMode = ENUM_BOX_FILLMODE_LINE
    healthBar_BackgroundBorders.LineThickness = 12
 
-   local healthBar_infoText = Text:new("Score: 0",love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.03))
+   local healthBar_infoText = Text:new("Score: 0 | Accuracy: ???% (?)",love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.03))
    healthBar_infoText.Position.x = healthBar_Background.Position.x
 
    if not currentSettings.downScroll then
@@ -637,12 +673,14 @@ function state:enter(song,difficulty)
                end
             end
 
-            songData.music.instrumental.PlayingSources[1]:pause()
-            if songData.music.vocals then
-               songData.music.vocals.PlayingSources[1]:pause()
-            else
-               songData.music.plyVocals.PlayingSources[1]:pause()
-               songData.music.enemyVocals.PlayingSources[1]:pause()
+            if #songData.music.instrumental.PlayingSources > 0 then
+               songData.music.instrumental.PlayingSources[1]:pause()
+               if songData.music.vocals then
+                  songData.music.vocals.PlayingSources[1]:pause()
+               else
+                  songData.music.plyVocals.PlayingSources[1]:pause()
+                  songData.music.enemyVocals.PlayingSources[1]:pause()
+               end
             end
          else
             Entity:destroy("pauseMenuMusic")
@@ -658,15 +696,20 @@ function state:enter(song,difficulty)
                end
             end
 
-            songData.music.instrumental.PlayingSources[1]:play()
-            if songData.music.vocals then
-               songData.music.vocals.PlayingSources[1]:play()
-            else
-               songData.music.plyVocals.PlayingSources[1]:play()
-               songData.music.enemyVocals.PlayingSources[1]:play()
+            if #songData.music.instrumental.PlayingSources > 0 then
+               songData.music.instrumental.PlayingSources[1]:play()
+               if songData.music.vocals then
+                  songData.music.vocals.PlayingSources[1]:play()
+               else
+                  songData.music.plyVocals.PlayingSources[1]:play()
+                  songData.music.enemyVocals.PlayingSources[1]:play()
+               end
             end
          end
 
+         return
+      elseif key == 'r' then
+         songData.health = 0
          return
       end
       if paused then return end
@@ -683,12 +726,16 @@ function state:enter(song,difficulty)
       if not direction then return end
 
       local noteConfirmed = nil
-      local songPosition = songData.music.instrumental.PlayingSources[1]:tell()
+      local songPosition = 0
+      if songData.music.instrumental.PlayingSources[1] then
+         songPosition = songData.music.instrumental.PlayingSources[1]:tell()
+      end
       for i,note in pairs(songData.notes) do
          if note.singer == "player" and note.dir == direction then
             local difference = math.abs(songPosition-note.tick)
             if difference < 0.15 then
                noteConfirmed = note
+               songData.hitSound:createSource():play()
                if songData.music.plyVocals then
                   songData.music.plyVocals.PlayingSources[1]:setVolume(1)
                else
@@ -698,7 +745,7 @@ function state:enter(song,difficulty)
                songData.streak = songData.streak + 1
 
                local ranking = "shit" -- default rank
-               if difference <= 0.02 then
+               if difference <= 0.03 then
                   ranking = "sick"
                   songData.points = songData.points + 450
                elseif difference <= 0.06 then
@@ -711,6 +758,7 @@ function state:enter(song,difficulty)
                   songData.points = songData.points + 50
                end
                songData.maxPoints = songData.maxPoints + 450
+               calculateAccuracy()
 
                -- spawn rank & streak view
                local gf = getObjectByTag("gf")
@@ -804,6 +852,7 @@ function state:enter(song,difficulty)
 
          songData.points = songData.points - 10
          songData.health = math.max(0,songData.health - 5)
+         calculateAccuracy()
          local actor = getObjectByTag("player")
          for _,v in pairs({"left","down","up","right"}) do
             if v == direction then
@@ -833,6 +882,7 @@ function state:enter(song,difficulty)
             local difference = math.abs(songData.music.instrumental.PlayingSources[1]:tell()-note.tick-note.length)
             if difference > 0.15 then
                playerMiss(note.dir)
+               calculateAccuracy()
             end
 
             ui[8]["noteBody" .. tostring(note.noteImg.index)] = nil
@@ -852,13 +902,51 @@ function state:enter(song,difficulty)
       receptor:stopAnimation("pressed_confirm")
    end)
 
-   songData.music.instrumental:createSource():play()
-   if songData.music.vocals then
-      songData.music.vocals:createSource():play()
-   else
-      songData.music.plyVocals:createSource():play()
-      songData.music.enemyVocals:createSource():play()
-   end
+   local countDownSounds = {
+      [1] = love.audio.newSource("assets/sounds/countdown/introTHREE.ogg","static"),
+      [2] = love.audio.newSource("assets/sounds/countdown/introTWO.ogg","static"),
+      [3] = love.audio.newSource("assets/sounds/countdown/introONE.ogg","static"),
+      [4] = love.audio.newSource("assets/sounds/countdown/introGO.ogg","static"),
+   }
+   local countDownImages = {
+      [2] = love.graphics.newImage("assets/images/countdown/ready.png"),
+      [3] = love.graphics.newImage("assets/images/countdown/set.png"),
+      [4] = love.graphics.newImage("assets/images/countdown/go.png"),
+   }
+   stuff.Countdown = Entity:create(Clock,"Countdown",5,60/metaData.bpm,function(clock)
+      if countDownSounds[clock.reps] then
+         countDownSounds[clock.reps]:play()
+      end
+      if countDownImages[clock.reps] then
+         local img = Image:new(countDownImages[clock.reps])
+         img.FitType = ENUM_IMAGE_FITTYPE_FIT
+         img.Size = {w=push:getWidth()*0.75,h=push:getHeight()*0.75}
+         img.Position = {x=0,y=0}
+
+         flux.to(img.Colour,clock.delay,{a=0})
+
+         Entity:create(Clock,"destroyCountdownImage",1,clock.delay,function()
+            ui[12] = nil
+         end)
+
+         ui[12] = img
+      end
+
+      if clock.reps == 5 then
+         songData.music.instrumental:createSource():play()
+         if songData.music.vocals then
+            songData.music.vocals:createSource():play()
+         else
+            songData.music.plyVocals:createSource():play()
+            songData.music.enemyVocals:createSource():play()
+         end
+
+         songData.started = true
+         stuff.Countdown = nil
+      end
+   end)
+
+   songData.health = 50 -- need this when the player restarts the song (the player dies instantly if this is not included)
 end
 
 local alreadyDead = false
@@ -950,6 +1038,8 @@ function state:update(dt)
 
                stuff.DeadMusic = Entity:create(Sound,"gameOver","assets/music/gameOver.ogg",ENUM_SOUND_STREAM)
                stuff.DeadMusicEnd = Entity:create(Sound,"gameOverEnd","assets/music/gameOverEnd.ogg",ENUM_SOUND_STREAM)
+
+               stuff.DeadMusic.Source:setLooping(true)
                stuff.DeadMusic:createSource():play()
 
                Input:bind("GameOverRestart",{"KeyPressed"},function(key)
@@ -967,7 +1057,7 @@ function state:update(dt)
                      end)
 
                      Input:unbind("GameOverRestart")
-                  elseif key == "escape" then
+                  elseif key == "escape" or key == "backspace" then
                      Input:unbind("GameOverRestart")
                      States:switchState("menu",true)
                   end
@@ -982,6 +1072,7 @@ function state:update(dt)
 
       return
    end
+   if not songData.started then return end
 
    if songData.songTimer >= songData.music.instrumental.PlayingSources[1]:getDuration() then -- assume the song ended
       States:switchState("menu",true)
@@ -1041,6 +1132,11 @@ function state:update(dt)
                actor:stopAnimation(dir)
                if dir == note.dir then
                   actor:playAnimation(dir)
+               end
+            end
+            if not note.beingHit then
+               if songData.health > 2 then
+                  songData.health = songData.health - 2
                end
             end
             
@@ -1110,38 +1206,13 @@ function state:update(dt)
 
          if remove then
             playerMiss(note.dir)
+            calculateAccuracy()
             ui[8]["noteBody" .. tostring(note.noteImg.index)] = nil
             ui[8]["noteTail" .. tostring(note.noteImg.index)] = nil
             ui[8]["note" .. tostring(note.noteImg.index)] = nil
             table.remove(songData.notes,i)
          end
       end
-   end
-
-   do
-      local acc = "???"
-      local rank = "?"
-      if songData.maxPoints ~= 0 then
-         local percentage = (songData.points/songData.maxPoints)*100
-
-         if percentage >= 99 then
-            rank = "Marvelous!!!"
-         elseif percentage >= 90 then
-            rank = "Sick!!"
-         elseif percentage >= 80 then
-            rank = "Good!"
-         elseif percentage >= 70 then
-            rank = "Okay..."
-         elseif percentage >= 60 then
-            rank = "Bad"
-         else
-            rank = "Shit"
-         end
-
-         acc = string.format("%.1f",percentage)
-      end
-
-      ui[6].Text = "Score: " .. tostring(songData.points) .. " | Accuracy: " .. acc .. "% (" .. rank .. ")"
    end
 
    local healthBar_Background = ui[2]
