@@ -1,4 +1,4 @@
-local VERSION = "5"
+local VERSION = "5.0"
 love.window.setTitle("Friday Night Lovin' - VERSION " .. VERSION)
 
 local scripter = require("engine.scripter")
