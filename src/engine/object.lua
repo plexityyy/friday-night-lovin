@@ -1,3 +1,4 @@
+-- generic superclass
 local file = {priority=3}
 
 function file:init()

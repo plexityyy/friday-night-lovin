@@ -1,4 +1,4 @@
--- Displays an image
+-- Handles sounds
 local file = {priority=2}
 
 function file:init()

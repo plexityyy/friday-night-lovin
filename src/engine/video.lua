@@ -1,4 +1,4 @@
--- Display a video (ogv Theora SUCKS)
+-- Displays a video (ogv Theora SUCKS)
 local file = {priority=2}
 
 function file:init()
