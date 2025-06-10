@@ -1,5 +1,5 @@
 -- 1,000+ LINES HOLLY MOLLY!!
--- hold notes still look like shit might i add (especially the longer ones)
+-- hold notes may need some attention (especially longer ones)
 
 local state = {}
 local stuff = {}
@@ -96,6 +96,7 @@ local eventToFunction = {
 
 local safeKeeping = {}
 local paused = false
+local justStarted = false
 local currentSettings
 function state:enter(song,difficulty)
    assert(love.filesystem.getDirectoryItems("songs/" .. song),string.format("An error occured with the game.lua scene! (Couldn't find \"%s\" song!)",song))
@@ -104,6 +105,8 @@ function state:enter(song,difficulty)
 
    currentSettings = settings:getSettings()
    local metaData = JSON.decode(love.filesystem.read("songs/" .. song .. "/metadata.json"))
+
+   justStarted = true
 
    safeKeeping = {
       name = song,
@@ -945,8 +948,6 @@ function state:enter(song,difficulty)
          stuff.Countdown = nil
       end
    end)
-
-   songData.health = 50 -- need this when the player restarts the song (the player dies instantly if this is not included)
 end
 
 local alreadyDead = false
@@ -996,6 +997,10 @@ function state:exit()
 end
 
 function state:update(dt)
+   if justStarted then
+      songData.health = 50 -- need this when the player restarts the song (the player dies instantly if this is not included)
+      justStarted = false
+   end
    if songData.health and songData.health <= 0 then
       if not alreadyDead then
          -- destroy everything, but keep bf around
@@ -1088,12 +1093,12 @@ function state:update(dt)
          note.noteImg.img.Position.y = (note.noteImg.receptor.Position.y-50) - (note.tick - songPosition) * songData.speed
          if note.noteImg.bodyImg and note.noteImg.tailImg then
             note.noteImg.tailImg.Position.y = (note.noteImg.receptor.Position.y-50) - ((note.tick + note.length) - songPosition) * songData.speed
-            note.noteImg.tailImg.Position.x = note.noteImg.img.Position.x + 40
+            note.noteImg.tailImg.Position.x = note.noteImg.img.Position.x + 51 -- 51 for the width of a note tail
 
             note.noteImg.bodyImg.Position.x = note.noteImg.tailImg.Position.x
             note.noteImg.bodyImg.Position.y = note.noteImg.tailImg.Position.y + 64 -- 64 for the height of the tailImg quad
             if note.beingHit then
-               note.noteImg.bodyImg.Size.h = -((note.noteImg.tailImg.Position.y + 64) - (note.noteImg.receptor.Position.y + (158/3)))*25
+               note.noteImg.bodyImg.Size.h = -((note.noteImg.tailImg.Position.y + 64) - (note.noteImg.receptor.Position.y + 16))*25 -- 16 for...uh..idfk...and 25 for making bodyImg look "good"
             else
                note.noteImg.bodyImg.Size.h = math.abs((note.noteImg.tailImg.Position.y + 64) - note.noteImg.img.Position.y)*25
             end
@@ -1102,18 +1107,19 @@ function state:update(dt)
          note.noteImg.img.Position.y = (note.noteImg.receptor.Position.y-50) + (note.tick - songPosition) * songData.speed
          if note.noteImg.bodyImg and note.noteImg.tailImg then
             note.noteImg.tailImg.Position.y = ((note.noteImg.receptor.Position.y-50) + ((note.tick + note.length) - songPosition) * songData.speed)
-            note.noteImg.tailImg.Position.x = note.noteImg.img.Position.x + 40
+            note.noteImg.tailImg.Position.x = note.noteImg.img.Position.x + 51
 
             note.noteImg.bodyImg.Position.x = note.noteImg.tailImg.Position.x
             note.noteImg.bodyImg.Position.y = note.noteImg.img.Position.y
             if note.beingHit then
-               note.noteImg.bodyImg.Size.h = ((note.noteImg.tailImg.Position.y - 64) - (note.noteImg.receptor.Position.y + (158/3)))*25
+               note.noteImg.bodyImg.Size.h = ((note.noteImg.tailImg.Position.y - 64) - (note.noteImg.receptor.Position.y + 16))*25
+               note.noteImg.tailImg.Position.y = note.noteImg.tailImg.Position.y - (64*2) + (157/2) -- 157 for the height of a receptor
             else
                note.noteImg.bodyImg.Size.h = ((note.noteImg.tailImg.Position.y - 64) - note.noteImg.img.Position.y)*25
+               note.noteImg.tailImg.Position.y = note.noteImg.tailImg.Position.y + (157/2)
             end
 
             note.noteImg.bodyImg.Position.y = note.noteImg.bodyImg.Position.y + (157/2)
-            note.noteImg.tailImg.Position.y = note.noteImg.tailImg.Position.y + (157/2)
          end
       end
 

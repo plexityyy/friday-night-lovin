@@ -1,10 +1,3 @@
---[[
-
-TODO:
-    1. Add settings menu
-
-]]
-
 local state = {}
 local stuff = {}
 
@@ -776,6 +769,7 @@ Please put new playlists into %s/songs.]]
     end
 end
 
+local somethingSelected = false
 function state:exit()
     for _,v in pairs(stuff) do
         Entity:destroy(v)
@@ -785,10 +779,11 @@ function state:exit()
         Input:unbind("Menu_MousePressed")
     end
 
+    somethingSelected = false
+    canTouchAnything = true
     stuff = {}
 end
 
-local somethingSelected = false
 function state:update(dt)
     stuff.MainMenuSoundInstance:setVolume(state.mainmenuVolume)
     stuff.wallpaper.Position = {

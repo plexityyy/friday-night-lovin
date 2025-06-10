@@ -25,10 +25,10 @@ return {
         h = 157
     },
     leftNoteHoldBody = {
-        x = 1337, -- 0_o
-        y = 457,
-        w = 51,
-        h = 84
+        x = 1338,
+        y = 458,
+        w = 50,
+        h = 83
     },
     leftNoteHoldTail = {
         x = 1117,
@@ -37,10 +37,10 @@ return {
         h = 64
     },
     downNoteHoldBody = {
-        x = 1282,
-        y = 457,
-        w = 51,
-        h = 84
+        x = 1283,
+        y = 458,
+        w = 50,
+        h = 83
     },
     downNoteHoldTail = {
         x = 1062,
@@ -49,10 +49,10 @@ return {
         h = 64
     },
     upNoteHoldBody = {
-        x = 1227,
-        y = 457,
-        w = 51,
-        h = 84
+        x = 1228,
+        y = 458,
+        w = 50,
+        h = 83
     },
     upNoteHoldTail = {
         x = 1007,
@@ -61,10 +61,10 @@ return {
         h = 64
     },
     rightNoteHoldBody = {
-        x = 1172,
-        y = 457,
-        w = 51,
-        h = 84
+        x = 1173,
+        y = 458,
+        w = 50,
+        h = 83
     },
     rightNoteHoldTail = {
         x = 952,
