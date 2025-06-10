@@ -56,7 +56,7 @@ function state:enter(skipIntro)
     local playListsMaxPages = 1
 
     local items = 0
-    for i,folder in pairs(love.filesystem.getDirectoryItems("songs/")) do
+    --[[for i,folder in pairs(love.filesystem.getDirectoryItems("songs/")) do
         local s,e = pcall(function()
             local metadata = JSON.decode(love.filesystem.read("songs/" .. folder .. "/metadata.json"))
             playlists[i] = {
@@ -88,7 +88,7 @@ function state:enter(skipIntro)
                 playListsMaxPages = playListsMaxPages + 1
             end
         end
-    end
+    end]]
 
     local menuVHSFont = love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.05)
     local options = {
@@ -99,14 +99,15 @@ function state:enter(skipIntro)
             callback = function()
                 if #playlists == 0 then
                     local txt = [[You have no songs installed!!
-Please put new playlists into %s/songs.]]
+
+Please put new songs into %s or %s]]
                     local os = love.system.getOS()
                     if os == "Windows" then
-                        txt = string.format(txt,"%AppData%/LOVE/friday-night-lovin")
+                        txt = string.format(txt,"%AppData%\\friday-night-lovin\\songs","%AppData%\\friday-night-lovin\\songs")
                     elseif os == "Linux" then
-                        txt = string.format(txt,"~/.local/share/love/friday-night-lovin")
+                        txt = string.format(txt,"~/.local/share/friday-night-lovin/songs","~/.local/share/love/friday-night-lovin/songs")
                     elseif os == "OS X" then
-                        txt = string.format(txt,"your user directory/Library/Application Support/LOVE/friday-night-lovin")
+                        txt = string.format(txt,"user/Library/Application Support/friday-night-lovin/songs","user/Library/Application Support/LOVE/friday-night-lovin/songs")
                     end
 
                     local font = love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.04)
