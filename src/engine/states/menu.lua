@@ -103,7 +103,7 @@ function state:enter(skipIntro)
 Please put new songs into %s or %s]]
                     local os = love.system.getOS()
                     if os == "Windows" then
-                        txt = string.format(txt,"%AppData%\\friday-night-lovin\\songs","%AppData%\\friday-night-lovin\\songs")
+                        txt = string.format(txt,"%AppData%\\friday-night-lovin\\songs","%AppData%\\LOVE\\friday-night-lovin\\songs")
                     elseif os == "Linux" then
                         txt = string.format(txt,"~/.local/share/friday-night-lovin/songs","~/.local/share/love/friday-night-lovin/songs")
                     elseif os == "OS X" then
