@@ -56,7 +56,7 @@ function state:enter(skipIntro)
     local playListsMaxPages = 1
 
     local items = 0
-    --[[for i,folder in pairs(love.filesystem.getDirectoryItems("songs/")) do
+    for i,folder in pairs(love.filesystem.getDirectoryItems("songs/")) do
         local s,e = pcall(function()
             local metadata = JSON.decode(love.filesystem.read("songs/" .. folder .. "/metadata.json"))
             playlists[i] = {
@@ -88,7 +88,7 @@ function state:enter(skipIntro)
                 playListsMaxPages = playListsMaxPages + 1
             end
         end
-    end]]
+    end
 
     local menuVHSFont = love.graphics.newFont("assets/fonts/vcr.ttf",push:getHeight()*0.05)
     local options = {
