@@ -1,7 +1,5 @@
 ![icon](logo.png)
 
-If you're a Windows user, please read [this.](https://github.com/plexityyy/friday-night-lovin/issues/2)
-
 # Friday Night Lovin'
 
 A [Löve2D](https://love2d.org/) recreation of *Friday Night Funkin'*.

@@ -114,7 +114,7 @@ function state:enter(song,difficulty)
    }
    songData = {
       music = {
-         instrumental = Entity:create(Sound,"instrumentalMusic",love.filesystem.read("songs/" .. song .. "/Inst.ogg"),ENUM_SOUND_STREAM,true)
+         instrumental = Entity:create(Sound,"instrumentalMusic",love.filesystem.read("songs/" .. song .. "/Inst.wav"),ENUM_SOUND_STREAM,true)
       },
       sounds = {
          missNote1 = Entity:create(Sound,"missNote1","assets/sounds/missnote1.ogg",ENUM_SOUND_MEMORY),
@@ -164,13 +164,13 @@ function state:enter(song,difficulty)
    songData.hitSound.Source:setVolume(currentSettings.hitVolume)
    songData.music.instrumental.Source:setLooping(true)
 
-   if love.filesystem.getInfo("songs/" .. song .. "/PlayerVocals.ogg") and love.filesystem.getInfo("songs/" .. song .. "/EnemyVocals.ogg") then
-      songData.music.plyVocals = Entity:create(Sound,"plyVocalsMusic",love.filesystem.read("songs/" .. song .. "/PlayerVocals.ogg"),ENUM_SOUND_STREAM,true)
+   if love.filesystem.getInfo("songs/" .. song .. "/PlayerVocals.wav") and love.filesystem.getInfo("songs/" .. song .. "/EnemyVocals.wav") then
+      songData.music.plyVocals = Entity:create(Sound,"plyVocalsMusic",love.filesystem.read("songs/" .. song .. "/PlayerVocals.wav"),ENUM_SOUND_STREAM,true)
       songData.music.plyVocals.Source:setLooping(true)
-      songData.music.enemyVocals = Entity:create(Sound,"enemyVocalsMusic",love.filesystem.read("songs/" .. song .. "/EnemyVocals.ogg"),ENUM_SOUND_STREAM,true)
+      songData.music.enemyVocals = Entity:create(Sound,"enemyVocalsMusic",love.filesystem.read("songs/" .. song .. "/EnemyVocals.wav"),ENUM_SOUND_STREAM,true)
       songData.music.enemyVocals.Source:setLooping(true)
-   elseif love.filesystem.getInfo("songs/" .. song .. "/Vocals.ogg") then
-      songData.music.vocals = Entity:create(Sound,"vocalsMusic",love.filesystem.read("songs/" .. song .. "/Vocals.ogg"),ENUM_SOUND_STREAM,true)
+   elseif love.filesystem.getInfo("songs/" .. song .. "/Vocals.wav") then
+      songData.music.vocals = Entity:create(Sound,"vocalsMusic",love.filesystem.read("songs/" .. song .. "/Vocals.wav"),ENUM_SOUND_STREAM,true)
       songData.music.vocals.Source:setLooping(true)
    else
       error(string.format("Error when trying to load \"%s\"! (Song has no vocal files, or at least not one that's valid.)",song))
